@@ -32,7 +32,6 @@ class PossessionScene extends Phaser.Scene {
   purification = 0
   bossHp = 100
   medicine = 3
-  points = 5
   melee: Melee = 'sword'
   gun: Gun = 'bow'
   weaponSlot = 1
@@ -80,6 +79,7 @@ class PossessionScene extends Phaser.Scene {
     this.load.image('arena', '/assets/hellgate-arena.png')
     this.load.image('hellFloor', '/assets/hell-basalt-floor-v1.png')
     this.load.image('hellWall', '/assets/hell-fortress-wall-v1.png')
+    this.load.image('angelDirection', '/assets/angel-direction-v1.png')
     this.load.spritesheet('guardianMotion', '/assets/guardian-motion-v3.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('guardianUnarmed', '/assets/guardian-unarmed-v2.png', { frameWidth: 400, frameHeight: 313 })
     this.load.spritesheet('demonMotion', '/assets/demon-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
@@ -154,7 +154,6 @@ class PossessionScene extends Phaser.Scene {
     this.purification = 0
     this.bossHp = 100
     this.medicine = 3
-    this.points = 5
     this.melee = 'sword'
     this.gun = 'bow'
     this.weaponSlot = 1
@@ -227,12 +226,12 @@ class PossessionScene extends Phaser.Scene {
       g.lineStyle(4,0x8f343c,.55).strokeCircle(x,y,r).lineStyle(2,0xc97763,.28).strokeCircle(x,y,r-18)
       for(let a=0;a<Math.PI*2;a+=Math.PI/4) g.lineBetween(x+Math.cos(a)*(r-20),y+Math.sin(a)*(r-20),x+Math.cos(a)*r,y+Math.sin(a)*r)
     }
-    const torches=[[535,2480],[850,2070],[1130,1870],[1280,1370],[1810,1320],[2130,1110],[2080,1980],[2360,2210],[950,1080],[2300,820]]
-    for(const [x,y] of torches) {
-      const glow=this.add.circle(x,y-20,38,0xc34632,.1).setDepth(4)
-      const flame=this.add.triangle(x,y-28,0,30,13,0,26,30,0xff7247,.9).setDepth(5)
-      this.add.rectangle(x,y,12,38,0x3b302d).setDepth(4)
-      this.tweens.add({targets:[glow,flame],scaleX:1.2,scaleY:.82,alpha:.45,duration:Phaser.Math.Between(420,720),yoyo:true,repeat:-1})
+    const guides=[[535,2480,32],[850,2070,48],[1130,1870,48],[1280,1370,-42],[1810,1320,54],[2130,1110,54],[2080,1980,132],[2360,2210,132],[950,1080,-42],[2300,820,78]]
+    for(const [x,y,angle] of guides) {
+      const glow=this.add.circle(x,y,58,0xb9fff0,.08).setDepth(4)
+      const statue=this.add.image(x,y,'angelDirection').setDisplaySize(74,112).setAngle(angle).setTint(0xb9aaa0).setDepth(5)
+      this.tweens.add({targets:glow,scale:1.35,alpha:.2,duration:Phaser.Math.Between(850,1250),yoyo:true,repeat:-1})
+      this.tweens.add({targets:statue,alpha:.72,duration:Phaser.Math.Between(1200,1700),yoyo:true,repeat:-1})
     }
     const debris=[[610,2380],[980,1980],[1230,1690],[980,1120],[1880,1260],[2230,930],[2070,1920],[2410,2250],[2810,2260]]
     for(const [x,y] of debris) {
@@ -326,30 +325,24 @@ class PossessionScene extends Phaser.Scene {
   createPreparation() {
     const bg = this.add.rectangle(640, 360, 780, 520, 0x0d0e12, .96).setStrokeStyle(2, 0x7b3035)
     const title = this.add.text(640, 138, '봉인 수호자의 무기고', { fontFamily: 'Georgia', fontSize: '34px', color: '#eee1d2' }).setOrigin(.5)
-    const sub = this.add.text(640, 183, '5 포인트로 무기를 선택하고 강화하십시오', { fontFamily: 'Arial', fontSize: '15px', color: '#aa9891' }).setOrigin(.5)
-    const info = this.add.text(420, 240, '', { fontFamily: 'Arial', fontSize: '19px', color: '#e4d8cb', lineSpacing: 15 })
-    const pointText = this.add.text(860, 240, '', { fontFamily: 'Arial', fontSize: '21px', color: '#e55a55' }).setOrigin(.5)
+    const sub = this.add.text(640, 183, '이번 작전에 사용할 근접 무기와 원거리 무기를 선택하십시오', { fontFamily: 'Arial', fontSize: '15px', color: '#aa9891' }).setOrigin(.5)
+    const info = this.add.text(640, 245, '', { fontFamily: 'Arial', fontSize: '19px', color: '#e4d8cb', lineSpacing: 15, align:'center' }).setOrigin(.5)
     const buttons: Phaser.GameObjects.Text[] = []
     const button = (x: number, y: number, label: string, fn: () => void) => {
       const t = this.add.text(x, y, label, { fontFamily: 'Arial', fontSize: '17px', color: '#e8ddd2', backgroundColor: '#34262a', padding: { x: 17, y: 11 } }).setInteractive({ useHandCursor: true }).on('pointerdown', () => { fn(); refresh() })
       buttons.push(t); return t
     }
-    button(420, 380, '검 선택', () => { this.melee = 'sword' })
-    button(535, 380, '창 선택', () => { if (this.spend(1)) this.melee = 'spear' })
-    button(420, 440, '마력 활 선택', () => { this.gun = 'bow' })
-    button(555, 440, '산탄총 선택', () => { if (this.spend(1)) this.gun = 'shotgun' })
-    button(700, 380, '근접 강화 +1', () => { if (this.spend(1)) this.meleeLevel++ })
-    button(700, 440, '원거리 강화 +1', () => { if (this.spend(1)) this.gunLevel++ })
+    button(470, 370, '검 선택', () => { this.melee = 'sword' })
+    button(590, 370, '창 선택', () => { this.melee = 'spear' })
+    button(710, 370, '마력 활', () => { this.gun = 'bow' })
+    button(830, 370, '산탄총', () => { this.gun = 'shotgun' })
     const start = button(640, 545, '지옥문으로 진입', () => { this.preparePanel.setVisible(false); this.gameStarted = true; this.startWave() }).setOrigin(.5)
     const refresh = () => {
-      info.setText(`근접 슬롯 [1]  ${this.melee.toUpperCase()}  Lv.${this.meleeLevel}\n원거리 슬롯 [2]  ${this.gun.toUpperCase()}  Lv.${this.gunLevel}\n신성한 약 [Q]  3개 지급`)
-      pointText.setText(`잔여 포인트\n${this.points}`)
+      info.setText(`근접 슬롯 [1]  ${this.melee.toUpperCase()}\n원거리 슬롯 [2]  ${this.gun.toUpperCase()}\n신성한 약 [Q]  3개 지급`)
     }
-    this.preparePanel = this.add.container(0, 0, [bg, title, sub, info, pointText, ...buttons]).setScrollFactor(0).setDepth(200)
+    this.preparePanel = this.add.container(0, 0, [bg, title, sub, info, ...buttons]).setScrollFactor(0).setDepth(200)
     void start; refresh()
   }
-
-  spend(n: number) { if (this.points < n) return false; this.points -= n; return true }
 
   startWave() {
     this.weaponVisual.setVisible(true)
@@ -616,6 +609,7 @@ class PossessionScene extends Phaser.Scene {
     const startAngle = this.player.flipX ? -135 : 135
     this.weaponVisual.setAngle(startAngle)
     this.tweens.add({ targets: this.weaponVisual, angle: this.player.flipX ? 90 : -90, duration: 265, ease: 'Cubic.Out' })
+    this.playArcaneMeleeMotion(angle)
     const range = this.melee === 'spear' ? 240 : 188
     const damage = (this.melee === 'spear' ? 28 : 24) * this.meleeLevel * this.powerMultiplier()
     const slash = this.add.arc(this.player.x, this.player.y, range, Phaser.Math.RadToDeg(angle) - 53, Phaser.Math.RadToDeg(angle) + 53, false, 0xe9d5b5, .32).setDepth(30)
@@ -624,6 +618,27 @@ class PossessionScene extends Phaser.Scene {
       if (this.executable) this.executeBoss(); else this.damageBoss(damage * .32)
     }
     this.enemies.getChildren().forEach(o => { const e = o as Phaser.Physics.Arcade.Sprite; if (Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y) < range) this.damageEnemy(e, damage) })
+  }
+
+  playArcaneMeleeMotion(aim:number) {
+    const key=`weapon-${this.melee}`
+    const height=this.melee==='spear'?225:174
+    const blade=this.add.image(this.player.x,this.player.y,key).setDisplaySize(this.weaponVisual.width/this.weaponVisual.height*height,height).setDepth(this.player.depth+5).setTint(0xb9fff0)
+    const aura=this.add.circle(this.player.x,this.player.y,34,0x6ce5d0,.16).setStrokeStyle(4,0xcafff3,.8).setDepth(this.player.depth+4)
+    const trail=this.add.graphics().setDepth(this.player.depth+3)
+    const state={t:0}, direction=this.player.flipX?-1:1, start=aim-direction*1.55
+    this.weaponVisual.setAlpha(.18)
+    this.tweens.add({targets:state,t:1,duration:285,ease:'Cubic.InOut',onUpdate:()=>{
+      const a=start+direction*3.1*state.t
+      const radius=75+Math.sin(state.t*Math.PI)*75
+      const x=this.player.x+Math.cos(a)*radius,y=this.player.y-34+Math.sin(a)*radius*.62
+      blade.setPosition(x,y).setAngle(Phaser.Math.RadToDeg(a)+90)
+      aura.setPosition(x,y).setScale(.7+Math.sin(state.t*Math.PI)*.8)
+      trail.clear().lineStyle(12,0x74f5df,.16).beginPath().arc(this.player.x,this.player.y-34,radius,start,a,!direction).strokePath()
+    },onComplete:()=>{
+      this.weaponVisual.setAlpha(.96)
+      this.tweens.add({targets:[blade,aura],alpha:0,scale:1.5,duration:100,onComplete:()=>{blade.destroy();aura.destroy();trail.destroy()}})
+    }})
   }
 
   drawAndFireBow(angle: number) {
