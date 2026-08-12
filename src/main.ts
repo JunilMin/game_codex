@@ -17,7 +17,7 @@ const H = 720
 const MAP_W = 3200
 const MAP_H = 3200
 
-type MissionPhase = 'seals' | 'boss' | 'extract'
+type MissionPhase = 'seals' | 'slaughter' | 'possession' | 'boss' | 'extract'
 
 class PossessionScene extends Phaser.Scene {
   player!: Phaser.Physics.Arcade.Sprite
@@ -62,6 +62,8 @@ class PossessionScene extends Phaser.Scene {
   weaponActionUntil = 0
   missionPhase: MissionPhase = 'seals'
   sealsActivated = 0
+  enemiesKilled = 0
+  isChannelingSeal = false
   sealNodes: Phaser.GameObjects.Container[] = []
   extraction!: Phaser.GameObjects.Container
   radar!: Phaser.GameObjects.Graphics
@@ -104,7 +106,7 @@ class PossessionScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.walls)
     this.physics.add.collider(this.enemies, this.walls)
     this.physics.add.collider(this.boss, this.walls)
-    this.physics.add.overlap(this.player, this.enemyShots, (_, s) => { (s as Phaser.Physics.Arcade.Sprite).destroy(); this.playerHit(undefined, 12) })
+    this.physics.add.overlap(this.player, this.enemyShots, (_, s) => { (s as Phaser.Physics.Arcade.Sprite).destroy(); this.playerHit(undefined, 25) })
     this.physics.add.overlap(this.bullets, this.enemies, (b, e) => { const shot = b as Phaser.Physics.Arcade.Sprite; const damage = shot.getData('damage') ?? 22; shot.destroy(); this.damageEnemy(e as Phaser.Physics.Arcade.Sprite, damage) })
     this.physics.add.overlap(this.bullets, this.boss, (b) => { const shot = b as Phaser.Physics.Arcade.Sprite; const damage = shot.getData('damage') ?? 22; shot.destroy(); this.damageBoss(damage * .38) })
 
@@ -113,6 +115,7 @@ class PossessionScene extends Phaser.Scene {
     this.keys = kb.addKeys('W,A,S,D,E,Q,ONE,TWO,SPACE') as Record<string, Phaser.Input.Keyboard.Key>
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (!this.gameStarted) return
+      if (this.isChannelingSeal || (this.activeSeal && this.keys.E.isDown)) return
       if (p.rightButtonDown()) this.parry()
       else this.attack(p.worldX, p.worldY)
     })
@@ -152,6 +155,8 @@ class PossessionScene extends Phaser.Scene {
     this.weaponActionUntil = 0
     this.missionPhase = 'seals'
     this.sealsActivated = 0
+    this.enemiesKilled = 0
+    this.isChannelingSeal = false
     this.sealNodes = []
     this.interactProgress = 0
     this.activeSeal = undefined
@@ -320,12 +325,27 @@ class PossessionScene extends Phaser.Scene {
       }
       this.activeSeal = nearestDistance < 125 ? nearest : undefined
       if (this.activeSeal && this.keys.E.isDown) {
+        this.isChannelingSeal = true
+        this.player.setVelocity(0)
         this.interactProgress += this.game.loop.delta
         this.instruction.setText(`봉인 정화 중 ${Math.min(100, Math.round(this.interactProgress / 12))}%`)
         if (this.interactProgress >= 1200) this.activateSeal(this.activeSeal)
       } else {
+        this.isChannelingSeal = false
         this.interactProgress = 0
         if (this.activeSeal) this.instruction.setText('[E]를 길게 눌러 봉인석 정화')
+      }
+    } else if (this.missionPhase === 'slaughter') {
+      if (this.enemiesKilled >= 300) {
+        this.missionPhase = 'possession'
+        this.instruction.setText('300마리 처리 완료 · 빙의율을 90%까지 끌어올리십시오')
+      }
+    } else if (this.missionPhase === 'possession') {
+      if (this.possession >= 90) {
+        this.missionPhase = 'boss'
+        this.enemies.getChildren().forEach(o=>(o as Phaser.Physics.Arcade.Sprite).getData('shadow')?.destroy())
+        this.enemies.clear(true,true)
+        this.instruction.setText('빙의율 90% 도달 · 중앙 문지기가 출현합니다')
       }
     } else if (this.missionPhase === 'extract') {
       if (Phaser.Math.Distance.Between(this.player.x, this.player.y, this.extraction.x, this.extraction.y) < 105) this.endGame(true)
@@ -345,8 +365,8 @@ class PossessionScene extends Phaser.Scene {
     this.instruction.setText(`봉인석 정화 완료 · ${this.sealsActivated}/3`)
     for (let i=0;i<3;i++) this.time.delayedCall(i*220,()=>this.spawnEnemy())
     if (this.sealsActivated === this.sealNodes.length) {
-      this.missionPhase = 'boss'
-      this.instruction.setText('모든 봉인 정화 완료 · 중앙 지옥문으로 이동하십시오')
+      this.missionPhase = 'slaughter'
+      this.instruction.setText('퀘스트 2 개방 · 악마 300마리를 처리하십시오')
     }
   }
 
@@ -364,7 +384,7 @@ class PossessionScene extends Phaser.Scene {
     this.player.setAlpha(time < this.dodgeUntil ? .55 : 1)
     this.updatePlayerAnimation(time, v)
 
-    if (this.missionPhase === 'seals' && time - this.lastSpawn > 630) { this.spawnEnemy(); this.lastSpawn = time }
+    if (['seals','slaughter','possession'].includes(this.missionPhase) && time - this.lastSpawn > 125 && this.enemies.countActive() < 140) { this.spawnEnemy(); this.lastSpawn = time }
     if (this.missionPhase === 'boss' && !this.bossActive) this.spawnBoss()
     this.updateMission(time)
     this.updateEnemies(time)
@@ -455,7 +475,7 @@ class PossessionScene extends Phaser.Scene {
         this.time.delayedCall(250, () => {
           if (!e.active) return
           this.tweens.add({ targets: e, x: e.x + (this.player.x - e.x) * .42, y: e.y + (this.player.y - e.y) * .42, duration: 90, yoyo: true })
-          if (Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y) < 76) this.playerHit(e, 8)
+          if (Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y) < 76) this.playerHit(e, 5)
           this.time.delayedCall(180, () => { if (e.active) e.play('demon-run', true) })
         })
       }
@@ -493,7 +513,7 @@ class PossessionScene extends Phaser.Scene {
         if (!this.bossActive) return
         if (parryable && Phaser.Math.Distance.Between(this.boss.x, this.boss.y, this.player.x, this.player.y) < 180) {
           if (this.time.now < this.parryUntil) this.successfulParry()
-          else this.playerHit(undefined, 18)
+          else this.playerHit(undefined, 25)
         } else if (!parryable) {
           for (let i = 0; i < 8; i++) this.fireEnemyShot(i * Math.PI / 4)
         }
@@ -616,6 +636,7 @@ class PossessionScene extends Phaser.Scene {
 
   neutralizeEnemy(enemy: Phaser.Physics.Arcade.Sprite) {
     if (!enemy.active) return
+    this.enemiesKilled++
     this.possession = Math.max(0, this.possession - 4)
     enemy.disableBody(true, false).setTint(0xb9fff0).play('demon-death', true)
     const halo = this.add.circle(enemy.x, enemy.y, 18, 0xaaffea, .25).setStrokeStyle(5, 0xd9fff6, .95).setDepth(70)
@@ -640,6 +661,7 @@ class PossessionScene extends Phaser.Scene {
     e.setData('hp', e.getData('hp') - n)
     e.setTint(0xffffff); this.time.delayedCall(80, () => e.clearTint())
     if (e.getData('hp') <= 0) {
+      this.enemiesKilled++
       e.disableBody(true, false)
       e.play('demon-death', true)
       this.enemyDeathBurst(e)
@@ -714,8 +736,10 @@ class PossessionScene extends Phaser.Scene {
         .fillStyle(0x8de6cf).fillRect(450, 55, 380 * this.purification / 100, 7)
     }
     this.objectiveText.setText(this.missionPhase === 'seals'
-      ? `작전 목표  봉인석 정화 ${this.sealsActivated}/3\n접근 후 [E] 길게 누르기`
-      : this.missionPhase === 'boss' ? '작전 목표  중앙 문지기 처형\n중화 또는 체력 고갈 후 붉은 핵 공격' : '작전 목표  탈출\n남서쪽 시작 지점으로 복귀')
+      ? `퀘스트 1  봉인석 정화 ${this.sealsActivated}/3\n정화 중에는 공격 불가`
+      : this.missionPhase === 'slaughter' ? `퀘스트 2  악마 처리 ${this.enemiesKilled}/300\n낮은 체력의 군단을 섬멸하십시오`
+      : this.missionPhase === 'possession' ? `퀘스트 3  빙의율 90% 도달\n현재 ${Math.round(this.possession)}% · 100%는 사망`
+      : this.missionPhase === 'boss' ? '최종 목표  중앙 문지기 처형\n보스 피격 1회당 빙의율 +25%' : '최종 목표  탈출\n남서쪽 시작 지점으로 복귀')
     this.drawRadar()
     const vignette = document.querySelector<HTMLDivElement>('#vignette')!
     vignette.style.opacity = String(Math.max(0, (this.possession - 55) / 45))
