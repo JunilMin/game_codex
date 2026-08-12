@@ -52,6 +52,8 @@ class PossessionScene extends Phaser.Scene {
   constructor() { super('possession') }
 
   create() {
+    this.resetRunState()
+    this.physics.resume()
     this.makeTextures()
     this.drawArena()
     this.walls = this.physics.add.staticGroup()
@@ -89,7 +91,32 @@ class PossessionScene extends Phaser.Scene {
     this.createPreparation()
   }
 
+  resetRunState() {
+    this.possession = 12
+    this.fear = 0
+    this.bossHp = 100
+    this.medicine = 3
+    this.points = 5
+    this.melee = 'sword'
+    this.gun = 'pistol'
+    this.weaponSlot = 1
+    this.meleeLevel = 1
+    this.gunLevel = 1
+    this.wave = 0
+    this.gameStarted = false
+    this.bossActive = false
+    this.executable = false
+    this.parryUntil = 0
+    this.dodgeUntil = 0
+    this.lastAttack = 0
+    this.lastSpawn = 0
+    this.waveStarted = 0
+    const vignette = document.querySelector<HTMLDivElement>('#vignette')
+    if (vignette) vignette.style.opacity = '0'
+  }
+
   makeTextures() {
+    if (this.textures.exists('player')) return
     const g = this.make.graphics({ x: 0, y: 0 })
     g.fillStyle(0xe8ded0).fillCircle(24, 28, 15).fillStyle(0x302b31).fillRect(13, 39, 22, 25).fillStyle(0xd5403a).fillTriangle(12, 42, 36, 42, 24, 65).generateTexture('player', 48, 68).clear()
     g.fillStyle(0x20181f).fillCircle(34, 31, 25).fillStyle(0x9f272e).fillTriangle(10, 15, 23, 4, 21, 24).fillTriangle(58, 15, 45, 4, 47, 24).fillStyle(0xd9483f).fillCircle(25, 28, 4).fillCircle(43, 28, 4).fillStyle(0x3b2025).fillRect(13, 47, 42, 36).generateTexture('boss', 68, 86).clear()
