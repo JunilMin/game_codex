@@ -97,9 +97,9 @@ class PossessionScene extends Phaser.Scene {
     this.player.play('guardian-idle')
     this.playerShadow = this.add.ellipse(400, 2811, 50, 17, 0x000000, .58).setDepth(18)
     this.weaponVisual = this.add.image(400, 2780, 'weapon-sword').setDepth(22).setVisible(false)
-    this.boss = this.physics.add.sprite(1600, 1500, 'bossMotion', 0).setDisplaySize(174, 174).setDepth(20).setImmovable(true).setVisible(false).setActive(false)
+    this.boss = this.physics.add.sprite(1600, 1500, 'bossMotion', 0).setDisplaySize(261, 261).setDepth(20).setImmovable(true).setVisible(false).setActive(false)
     this.boss.body!.setSize(380, 300).setOffset(180, 400)
-    this.bossShadow = this.add.ellipse(1600, 1550, 108, 34, 0x000000, .62).setDepth(18).setVisible(false)
+    this.bossShadow = this.add.ellipse(1600, 1575, 162, 51, 0x000000, .62).setDepth(18).setVisible(false)
 
     this.physics.add.collider(this.player, this.walls)
     this.physics.add.collider(this.enemies, this.walls)
@@ -188,6 +188,29 @@ class PossessionScene extends Phaser.Scene {
       g.fillStyle(0x3f2025,.18).fillCircle(x+Phaser.Math.Between(-30,30),y+Phaser.Math.Between(-30,30),Phaser.Math.Between(18,46))
     }
     g.lineStyle(12,0x6b3538,.8).strokeRect(5,5,MAP_W-10,MAP_H-10)
+    this.decorateOperationMap(g)
+  }
+
+  decorateOperationMap(g:Phaser.GameObjects.Graphics) {
+    const runes=[[400,2780,86],[720,820,110],[2580,760,110],[2630,2440,110],[1550,1550,165]]
+    for(const [x,y,r] of runes) {
+      g.lineStyle(4,0x8f343c,.55).strokeCircle(x,y,r).lineStyle(2,0xc97763,.28).strokeCircle(x,y,r-18)
+      for(let a=0;a<Math.PI*2;a+=Math.PI/4) g.lineBetween(x+Math.cos(a)*(r-20),y+Math.sin(a)*(r-20),x+Math.cos(a)*r,y+Math.sin(a)*r)
+    }
+    const torches=[[535,2480],[850,2070],[1130,1870],[1280,1370],[1810,1320],[2130,1110],[2080,1980],[2360,2210],[950,1080],[2300,820]]
+    for(const [x,y] of torches) {
+      const glow=this.add.circle(x,y-20,38,0xc34632,.1).setDepth(4)
+      const flame=this.add.triangle(x,y-28,0,30,13,0,26,30,0xff7247,.9).setDepth(5)
+      this.add.rectangle(x,y,12,38,0x3b302d).setDepth(4)
+      this.tweens.add({targets:[glow,flame],scaleX:1.2,scaleY:.82,alpha:.45,duration:Phaser.Math.Between(420,720),yoyo:true,repeat:-1})
+    }
+    const debris=[[610,2380],[980,1980],[1230,1690],[980,1120],[1880,1260],[2230,930],[2070,1920],[2410,2250],[2810,2260]]
+    for(const [x,y] of debris) {
+      g.fillStyle(0x4b4140,.75).fillTriangle(x-25,y+12,x+10,y-17,x+31,y+15)
+      g.lineStyle(3,0x837069,.45).lineBetween(x-18,y+5,x+18,y-8)
+    }
+    const stains=[[520,2620,42],[830,2160,55],[1350,1710,65],[850,970,48],[1770,1510,70],[2390,910,52],[2440,2290,64]]
+    for(const [x,y,r] of stains) g.fillStyle(0x651c27,.18).fillCircle(x,y,r).lineStyle(2,0xb8343d,.18).strokeCircle(x,y,r*.72)
   }
 
   isWalkable(x:number,y:number) {
@@ -341,7 +364,7 @@ class PossessionScene extends Phaser.Scene {
     this.player.setAlpha(time < this.dodgeUntil ? .55 : 1)
     this.updatePlayerAnimation(time, v)
 
-    if (this.missionPhase === 'seals' && time - this.lastSpawn > 1900) { this.spawnEnemy(); this.lastSpawn = time }
+    if (this.missionPhase === 'seals' && time - this.lastSpawn > 630) { this.spawnEnemy(); this.lastSpawn = time }
     if (this.missionPhase === 'boss' && !this.bossActive) this.spawnBoss()
     this.updateMission(time)
     this.updateEnemies(time)
@@ -373,7 +396,7 @@ class PossessionScene extends Phaser.Scene {
     this.playerShadow.setPosition(this.player.x, this.player.y + 31).setDepth(this.player.depth - 1).setScale(.92 + this.player.y / 5000)
     if (this.boss.visible) {
       this.boss.setDepth(20 + this.boss.y / 30)
-      this.bossShadow.setVisible(true).setPosition(this.boss.x, this.boss.y + 48).setDepth(this.boss.depth - 1)
+      this.bossShadow.setVisible(true).setPosition(this.boss.x, this.boss.y + 72).setDepth(this.boss.depth - 1)
     }
     this.enemies.getChildren().forEach(o => {
       const e = o as Phaser.Physics.Arcade.Sprite
@@ -408,7 +431,7 @@ class PossessionScene extends Phaser.Scene {
       if(this.isWalkable(candidate[0],candidate[1])) { p=candidate; break }
     }
     const e = this.enemies.create(p[0], p[1], 'demonMotion', 0) as Phaser.Physics.Arcade.Sprite
-    e.setDisplaySize(88, 88).setData('hp', 32).setData('nextHit', 0).setDepth(18).setTint(0xe1ced0)
+    e.setDisplaySize(88, 88).setData('hp', 16).setData('nextHit', 0).setDepth(18).setTint(0xe1ced0)
     e.setData('born', this.time.now)
     e.setData('shadow', this.add.ellipse(e.x, e.y + 27, 54, 18, 0x000000, .55).setDepth(17))
     e.body!.setSize(120, 72).setOffset(97, 221)
@@ -619,10 +642,30 @@ class PossessionScene extends Phaser.Scene {
     if (e.getData('hp') <= 0) {
       e.disableBody(true, false)
       e.play('demon-death', true)
-      this.tweens.add({ targets: e, alpha: 0, duration: 520, delay: 260, onComplete: () => { (e.getData('shadow') as Phaser.GameObjects.Ellipse | undefined)?.destroy(); e.destroy() } })
+      this.enemyDeathBurst(e)
     } else {
       this.tweens.add({ targets: e, x: e.x + (e.x - this.player.x) * .1, duration: 85, ease: 'Quad.Out' })
     }
+  }
+
+  enemyDeathBurst(e:Phaser.Physics.Arcade.Sprite) {
+    const x=e.x,y=e.y
+    this.cameras.main.shake(75,.0035)
+    const flash=this.add.star(x,y,10,12,58,0xffd6a0,.95).setDepth(75)
+    const shock=this.add.circle(x,y,22,0x8f1f2b,.12).setStrokeStyle(7,0xff665c,.9).setDepth(74)
+    this.tweens.add({targets:flash,scale:2.1,alpha:0,angle:55,duration:190,onComplete:()=>flash.destroy()})
+    this.tweens.add({targets:shock,scale:4.2,alpha:0,duration:280,ease:'Cubic.Out',onComplete:()=>shock.destroy()})
+    for(let i=0;i<12;i++) {
+      const a=Phaser.Math.FloatBetween(0,Math.PI*2),speed=Phaser.Math.Between(55,145)
+      const shard=this.add.triangle(x,y,0,0,Phaser.Math.Between(5,11),Phaser.Math.Between(14,27),Phaser.Math.Between(-7,-3),Phaser.Math.Between(13,25),i%3===0?0xff9a62:0x7f202b,1).setDepth(76).setAngle(Phaser.Math.RadToDeg(a))
+      this.tweens.add({targets:shard,x:x+Math.cos(a)*speed,y:y+Math.sin(a)*speed+Phaser.Math.Between(-25,35),angle:shard.angle+Phaser.Math.Between(120,420),scale:.25,alpha:0,duration:Phaser.Math.Between(280,480),ease:'Cubic.Out',onComplete:()=>shard.destroy()})
+    }
+    for(let i=0;i<6;i++) {
+      const a=i*Math.PI/3+Phaser.Math.FloatBetween(-.2,.2)
+      const streak=this.add.rectangle(x,y,Phaser.Math.Between(35,70),3,0xffc18a,.85).setOrigin(0,.5).setRotation(a).setDepth(73)
+      this.tweens.add({targets:streak,scaleX:2.2,alpha:0,duration:220,onComplete:()=>streak.destroy()})
+    }
+    this.tweens.add({targets:e,scaleX:e.scaleX*1.45,scaleY:e.scaleY*.55,alpha:0,duration:230,ease:'Expo.Out',onComplete:()=>{(e.getData('shadow') as Phaser.GameObjects.Ellipse|undefined)?.destroy();e.destroy()}})
   }
 
   damageBoss(n: number) {
