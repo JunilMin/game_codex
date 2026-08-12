@@ -87,7 +87,7 @@ class PossessionScene extends Phaser.Scene {
     this.player.body!.setSize(105, 62).setOffset(148, 228)
     this.player.play('guardian-idle')
     this.playerShadow = this.add.ellipse(640, 594, 50, 17, 0x000000, .58).setDepth(18)
-    this.weaponVisual = this.add.image(640, 570, 'weapon-sword').setDepth(22).setOrigin(.5, .78)
+    this.weaponVisual = this.add.image(640, 570, 'weapon-sword').setDepth(22)
     this.boss = this.physics.add.sprite(640, 145, 'bossMotion', 0).setDisplaySize(174, 174).setDepth(20).setImmovable(true).setVisible(false).setActive(false)
     this.boss.body!.setSize(380, 300).setOffset(180, 400)
     this.bossShadow = this.add.ellipse(640, 195, 108, 34, 0x000000, .62).setDepth(18).setVisible(false)
@@ -284,10 +284,18 @@ class PossessionScene extends Phaser.Scene {
     const key = `weapon-${name}`
     if (this.weaponVisual.texture.key !== key) this.weaponVisual.setTexture(key)
     const heights: Record<string, number> = { sword: 84, spear: 108, dagger: 58, pistol: 54, shotgun: 66 }
+    const anchors: Record<string, [number, number]> = {
+      sword: [.16, .9], spear: [.12, .93], dagger: [.17, .9], pistol: [.3, .86], shotgun: [.28, .88]
+    }
+    const handOffsets: Record<string, [number, number]> = {
+      sword: [5, 5], spear: [4, 6], dagger: [6, 5], pistol: [7, 1], shotgun: [6, 2]
+    }
     this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
-    this.weaponVisual.setPosition(this.player.x + (this.player.flipX ? -8 : 8), this.player.y + 4)
+    this.weaponVisual.setOrigin(anchors[name][0], anchors[name][1])
+    const side = this.player.flipX ? -1 : 1
+    this.weaponVisual.setPosition(this.player.x + handOffsets[name][0] * side, this.player.y + handOffsets[name][1])
       .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible)
-    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(this.player.flipX ? -36 : 36)
+    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(this.player.flipX ? -18 : 18)
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
