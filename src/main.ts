@@ -51,23 +51,31 @@ class PossessionScene extends Phaser.Scene {
 
   constructor() { super('possession') }
 
+  preload() {
+    this.load.image('arena', '/assets/hellgate-arena.png')
+    this.load.image('player', '/assets/guardian.png')
+    this.load.image('enemy', '/assets/demon.png')
+    this.load.image('boss', '/assets/gatekeeper.png')
+  }
+
   create() {
     this.resetRunState()
     this.physics.resume()
     this.makeTextures()
     this.drawArena()
     this.walls = this.physics.add.staticGroup()
-    this.makeObstacle(330, 240, 70, 110)
-    this.makeObstacle(950, 470, 85, 120)
-    this.makeObstacle(960, 210, 145, 52)
-    this.makeObstacle(310, 510, 140, 52)
+    this.makeObstacle(155, 270, 150, 210)
+    this.makeObstacle(1125, 270, 150, 210)
+    this.makeObstacle(185, 560, 200, 100)
+    this.makeObstacle(1095, 560, 200, 100)
 
     this.enemies = this.physics.add.group()
     this.bullets = this.physics.add.group()
     this.enemyShots = this.physics.add.group()
-    this.player = this.physics.add.sprite(640, 570, 'player').setDepth(20).setCollideWorldBounds(true)
-    this.player.body!.setSize(28, 34).setOffset(10, 18)
-    this.boss = this.physics.add.sprite(640, 145, 'boss').setDepth(20).setImmovable(true).setVisible(false).setActive(false)
+    this.player = this.physics.add.sprite(640, 570, 'player').setDisplaySize(82, 112).setDepth(20).setCollideWorldBounds(true)
+    this.player.body!.setSize(210, 150).setOffset(190, 480)
+    this.boss = this.physics.add.sprite(640, 145, 'boss').setDisplaySize(160, 180).setDepth(20).setImmovable(true).setVisible(false).setActive(false)
+    this.boss.body!.setSize(380, 300).setOffset(180, 400)
 
     this.physics.add.collider(this.player, this.walls)
     this.physics.add.collider(this.enemies, this.walls)
@@ -116,47 +124,26 @@ class PossessionScene extends Phaser.Scene {
   }
 
   makeTextures() {
-    if (this.textures.exists('player')) return
+    if (this.textures.exists('bullet')) return
     const g = this.make.graphics({ x: 0, y: 0 })
-    g.fillStyle(0xe8ded0).fillCircle(24, 28, 15).fillStyle(0x302b31).fillRect(13, 39, 22, 25).fillStyle(0xd5403a).fillTriangle(12, 42, 36, 42, 24, 65).generateTexture('player', 48, 68).clear()
-    g.fillStyle(0x20181f).fillCircle(34, 31, 25).fillStyle(0x9f272e).fillTriangle(10, 15, 23, 4, 21, 24).fillTriangle(58, 15, 45, 4, 47, 24).fillStyle(0xd9483f).fillCircle(25, 28, 4).fillCircle(43, 28, 4).fillStyle(0x3b2025).fillRect(13, 47, 42, 36).generateTexture('boss', 68, 86).clear()
-    g.fillStyle(0x6d252c).fillCircle(18, 17, 14).fillStyle(0x2b1d22).fillRect(8, 28, 20, 22).generateTexture('enemy', 36, 52).clear()
     g.fillStyle(0xf6d477).fillCircle(5, 5, 5).generateTexture('bullet', 10, 10).clear()
     g.fillStyle(0xb63e45).fillCircle(6, 6, 6).generateTexture('enemyShot', 12, 12).destroy()
   }
 
   drawArena() {
     this.cameras.main.setBackgroundColor('#090a0d')
-    const g = this.add.graphics()
-    g.fillStyle(0x17171c).fillRect(36, 36, W - 72, H - 72)
-    for (let y = 70; y < H - 60; y += 48) {
-      for (let x = 70; x < W - 60; x += 96) {
-        const shift = ((y / 48) % 2) * 48
-        g.lineStyle(1, 0x2c2930, .55).strokePoints([
-          new Phaser.Math.Vector2(x + shift, y), new Phaser.Math.Vector2(x + 48 + shift, y + 24),
-          new Phaser.Math.Vector2(x + shift, y + 48), new Phaser.Math.Vector2(x - 48 + shift, y + 24),
-          new Phaser.Math.Vector2(x + shift, y)
-        ])
-      }
-    }
-    g.lineStyle(5, 0x4a292c).strokeRect(36, 36, W - 72, H - 72)
-    g.fillStyle(0x220f14, .9).fillEllipse(640, 120, 300, 95)
-    g.lineStyle(4, 0xa43039, .7).strokeEllipse(640, 120, 230, 64)
-    g.fillStyle(0x54252a, .45).fillEllipse(640, 650, 180, 50)
+    this.add.image(640, 360, 'arena').setDisplaySize(W, H).setDepth(0)
+    const g = this.add.graphics().setDepth(2)
+    g.fillStyle(0x08090c, .2).fillRect(0, 0, W, H)
     for (const [x, y, r] of [[510,360,56],[770,390,44],[720,260,34]]) {
-      g.fillStyle(0x7d1e2b, .22).fillCircle(x, y, r)
-      g.lineStyle(2, 0xc8323e, .45).strokeCircle(x, y, r)
+      g.fillStyle(0x7d1e2b, .12).fillCircle(x, y, r)
+      g.lineStyle(2, 0xe3434c, .3).strokeCircle(x, y, r)
     }
-    this.add.text(640, 87, 'HELLGATE', { fontFamily: 'Georgia', fontSize: '13px', color: '#b9897e', letterSpacing: 5 }).setOrigin(.5)
   }
 
   makeObstacle(x: number, y: number, w: number, h: number) {
-    const shadow = this.add.ellipse(x + 9, y + h / 2 + 9, w + 20, 28, 0x000000, .55).setDepth(4)
-    const block = this.add.rectangle(x, y, w, h, 0x29262b).setStrokeStyle(3, 0x51464b).setDepth(10)
-    this.add.rectangle(x, y - h / 2 + 8, w - 10, 12, 0x5c4a4d).setDepth(11)
     const body = this.walls.create(x, y, undefined).setVisible(false) as Phaser.Physics.Arcade.Sprite
     body.body!.setSize(w, h)
-    void shadow; void block
   }
 
   createHud() {
@@ -199,7 +186,7 @@ class PossessionScene extends Phaser.Scene {
     this.wave++
     this.waveStarted = this.time.now
     this.lastSpawn = 0
-    this.instruction.setText(`WAVE ${this.wave} · 35초 생존 후 보스를 처형하십시오`)
+    this.instruction.setText(`WAVE ${this.wave} · 18초 생존 후 보스를 처형하십시오`)
     this.time.delayedCall(2200, () => this.instruction.setText(''))
   }
 
@@ -216,8 +203,8 @@ class PossessionScene extends Phaser.Scene {
     this.player.setVelocity(v.x, v.y)
     this.player.setAlpha(time < this.dodgeUntil ? .55 : 1)
 
-    if (!this.bossActive && time - this.waveStarted < 35000 && time - this.lastSpawn > 1550) { this.spawnEnemy(); this.lastSpawn = time }
-    if (!this.bossActive && time - this.waveStarted >= 35000 && this.enemies.countActive() === 0) this.spawnBoss()
+    if (!this.bossActive && time - this.waveStarted < 18000 && time - this.lastSpawn > 1550) { this.spawnEnemy(); this.lastSpawn = time }
+    if (!this.bossActive && time - this.waveStarted >= 18000 && this.enemies.countActive() === 0) this.spawnBoss()
     this.updateEnemies(time)
     this.updateBoss(time)
     this.redrawHud()
@@ -231,7 +218,8 @@ class PossessionScene extends Phaser.Scene {
     const edge = Phaser.Math.Between(0, 3)
     const p = edge === 0 ? [50, Phaser.Math.Between(80, 640)] : edge === 1 ? [1230, Phaser.Math.Between(80, 640)] : edge === 2 ? [Phaser.Math.Between(80, 1200), 55] : [Phaser.Math.Between(80, 1200), 650]
     const e = this.enemies.create(p[0], p[1], 'enemy') as Phaser.Physics.Arcade.Sprite
-    e.setData('hp', 32).setData('nextHit', 0).setDepth(18)
+    e.setDisplaySize(66, 82).setData('hp', 32).setData('nextHit', 0).setDepth(18)
+    e.body!.setSize(230, 190).setOffset(190, 480)
   }
 
   updateEnemies(time: number) {
@@ -260,11 +248,11 @@ class PossessionScene extends Phaser.Scene {
     if (d > 150) this.physics.moveToObject(this.boss, this.player, 92)
     else this.boss.setVelocity(0)
     if (time > this.boss.getData('nextAttack')) {
-      this.boss.setData('nextAttack', time + 1450)
+      this.boss.setData('nextAttack', time + 2100)
       const count = this.boss.getData('attackCount') + 1; this.boss.setData('attackCount', count)
       const parryable = count % 3 !== 0
-      this.boss.setTint(parryable ? 0xff4a4a : 0x9d59ff)
-      this.time.delayedCall(380, () => {
+      this.showAttackTelegraph(parryable)
+      this.time.delayedCall(850, () => {
         this.boss.clearTint()
         if (!this.bossActive) return
         if (parryable && Phaser.Math.Distance.Between(this.boss.x, this.boss.y, this.player.x, this.player.y) < 180) {
@@ -275,6 +263,25 @@ class PossessionScene extends Phaser.Scene {
         }
       })
     }
+  }
+
+  showAttackTelegraph(parryable: boolean) {
+    this.boss.setVelocity(0)
+    const color = parryable ? 0xf0b94b : 0xa75cff
+    const angle = Phaser.Math.Angle.Between(this.boss.x, this.boss.y, this.player.x, this.player.y)
+    const cone = this.add.arc(this.boss.x, this.boss.y, 180, Phaser.Math.RadToDeg(angle) - 28, Phaser.Math.RadToDeg(angle) + 28, false, color, .24).setDepth(16)
+    const ring = this.add.circle(this.boss.x, this.boss.y, 100).setStrokeStyle(7, color, .9).setDepth(28)
+    const cue = this.add.text(this.boss.x, this.boss.y - 115, parryable ? 'PARRY' : 'DODGE', {
+      fontFamily: 'Georgia', fontSize: '17px', fontStyle: 'bold', color: parryable ? '#ffe19a' : '#d8a8ff',
+      backgroundColor: '#09080dcc', padding: { x: 9, y: 5 }
+    }).setOrigin(.5).setDepth(40)
+    this.tweens.add({ targets: ring, scale: .22, alpha: 1, duration: 760, ease: 'Cubic.In' })
+    this.tweens.add({ targets: this.boss, y: this.boss.y - 18, angle: parryable ? -7 : 7, yoyo: true, duration: 420, ease: 'Sine.InOut' })
+    this.time.delayedCall(760, () => {
+      if (parryable) this.boss.setTint(0xffd36a)
+      this.cameras.main.shake(70, .003)
+    })
+    this.time.delayedCall(900, () => { cone.destroy(); ring.destroy(); cue.destroy(); this.boss.clearTint(); this.boss.setAngle(0) })
   }
 
   fireEnemyShot(a: number) {
