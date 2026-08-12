@@ -629,9 +629,19 @@ class PossessionScene extends Phaser.Scene {
   }
 
   fireShotgun(angle: number) {
-    this.playerActionUntil = this.time.now + 180
-    this.weaponActionUntil = this.time.now + 180
-    this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle))
+    this.playerActionUntil = this.time.now + 310
+    this.weaponActionUntil = this.time.now + 310
+    const forwardAngle = Phaser.Math.RadToDeg(angle)
+    const recoilAngle = forwardAngle + (Math.cos(angle) < 0 ? 34 : -34)
+    this.weaponVisual.setAngle(forwardAngle)
+    this.tweens.killTweensOf(this.weaponVisual)
+    this.tweens.add({
+      targets: this.weaponVisual,
+      angle: recoilAngle,
+      duration: 85,
+      ease: 'Back.Out',
+      onComplete: () => this.tweens.add({ targets: this.weaponVisual, angle: forwardAngle, duration: 190, ease: 'Sine.Out' })
+    })
     this.tweens.add({ targets: this.player, x: this.player.x - Math.cos(angle) * 10, y: this.player.y - Math.sin(angle) * 10, duration: 55, yoyo: true, ease: 'Quad.Out' })
     const flash = this.add.circle(this.player.x + Math.cos(angle) * 78, this.player.y + Math.sin(angle) * 78, 27, 0xffd58a, .9).setDepth(45)
     this.tweens.add({ targets: flash, alpha: 0, scale: 2.3, duration: 90, onComplete: () => flash.destroy() })
