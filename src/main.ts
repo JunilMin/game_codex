@@ -53,14 +53,19 @@ class PossessionScene extends Phaser.Scene {
   preparePanel!: Phaser.GameObjects.Container
   playerShadow!: Phaser.GameObjects.Ellipse
   bossShadow!: Phaser.GameObjects.Ellipse
+  weaponVisual!: Phaser.GameObjects.Image
+  aimAngle = -.7
+  weaponActionUntil = 0
 
   constructor() { super('possession') }
 
   preload() {
     this.load.image('arena', '/assets/hellgate-arena.png')
     this.load.spritesheet('guardianMotion', '/assets/guardian-motion-v3.png', { frameWidth: 313, frameHeight: 313 })
+    this.load.spritesheet('guardianUnarmed', '/assets/guardian-unarmed-v2.png', { frameWidth: 400, frameHeight: 313 })
     this.load.spritesheet('demonMotion', '/assets/demon-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('bossMotion', '/assets/gatekeeper-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
+    for (const name of ['sword', 'spear', 'dagger', 'pistol', 'shotgun']) this.load.image(`weapon-${name}`, `/assets/weapon-${name}.png`)
   }
 
   create() {
@@ -78,10 +83,11 @@ class PossessionScene extends Phaser.Scene {
     this.enemies = this.physics.add.group()
     this.bullets = this.physics.add.group()
     this.enemyShots = this.physics.add.group()
-    this.player = this.physics.add.sprite(640, 570, 'guardianMotion', 0).setDisplaySize(118, 118).setDepth(20).setCollideWorldBounds(true)
-    this.player.body!.setSize(95, 62).setOffset(109, 228)
+    this.player = this.physics.add.sprite(640, 570, 'guardianUnarmed', 0).setDisplaySize(92, 92).setDepth(20).setCollideWorldBounds(true)
+    this.player.body!.setSize(105, 62).setOffset(148, 228)
     this.player.play('guardian-idle')
-    this.playerShadow = this.add.ellipse(640, 600, 64, 22, 0x000000, .58).setDepth(18)
+    this.playerShadow = this.add.ellipse(640, 594, 50, 17, 0x000000, .58).setDepth(18)
+    this.weaponVisual = this.add.image(640, 570, 'weapon-sword').setDepth(22).setOrigin(.5, .78)
     this.boss = this.physics.add.sprite(640, 145, 'bossMotion', 0).setDisplaySize(174, 174).setDepth(20).setImmovable(true).setVisible(false).setActive(false)
     this.boss.body!.setSize(380, 300).setOffset(180, 400)
     this.bossShadow = this.add.ellipse(640, 195, 108, 34, 0x000000, .62).setDepth(18).setVisible(false)
@@ -131,6 +137,8 @@ class PossessionScene extends Phaser.Scene {
     this.playerActionUntil = 0
     this.lastDodgeAfterimage = 0
     this.bossActionUntil = 0
+    this.aimAngle = -.7
+    this.weaponActionUntil = 0
     const vignette = document.querySelector<HTMLDivElement>('#vignette')
     if (vignette) vignette.style.opacity = '0'
   }
@@ -155,10 +163,10 @@ class PossessionScene extends Phaser.Scene {
 
   createAnimations() {
     if (this.anims.exists('guardian-idle')) return
-    this.anims.create({ key: 'guardian-idle', frames: this.anims.generateFrameNumbers('guardianMotion', { start: 0, end: 3 }), frameRate: 4, repeat: -1 })
-    this.anims.create({ key: 'guardian-run', frames: this.anims.generateFrameNumbers('guardianMotion', { start: 4, end: 7 }), frameRate: 11, repeat: -1 })
-    this.anims.create({ key: 'guardian-slash', frames: this.anims.generateFrameNumbers('guardianMotion', { start: 8, end: 11 }), frameRate: 15, repeat: 0 })
-    this.anims.create({ key: 'guardian-parry', frames: this.anims.generateFrameNumbers('guardianMotion', { start: 12, end: 15 }), frameRate: 12, repeat: 0 })
+    this.anims.create({ key: 'guardian-idle', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 0, end: 3 }), frameRate: 4, repeat: -1 })
+    this.anims.create({ key: 'guardian-run', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 4, end: 7 }), frameRate: 11, repeat: -1 })
+    this.anims.create({ key: 'guardian-slash', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 8, end: 11 }), frameRate: 15, repeat: 0 })
+    this.anims.create({ key: 'guardian-parry', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 12, end: 15 }), frameRate: 12, repeat: 0 })
     this.anims.create({ key: 'demon-idle', frames: this.anims.generateFrameNumbers('demonMotion', { start: 0, end: 3 }), frameRate: 5, repeat: -1 })
     this.anims.create({ key: 'demon-run', frames: this.anims.generateFrameNumbers('demonMotion', { start: 4, end: 7 }), frameRate: 10, repeat: -1 })
     this.anims.create({ key: 'demon-attack', frames: this.anims.generateFrameNumbers('demonMotion', { start: 8, end: 11 }), frameRate: 13, repeat: 0 })
@@ -236,6 +244,7 @@ class PossessionScene extends Phaser.Scene {
     this.updateEnemies(time)
     this.updateBoss(time)
     this.updateGrounding()
+    this.updateWeaponVisual(time)
     this.redrawHud()
     if (this.possession >= 100) this.endGame(false)
   }
@@ -243,7 +252,7 @@ class PossessionScene extends Phaser.Scene {
   updatePlayerAnimation(time: number, velocity: Phaser.Math.Vector2) {
     if (time < this.dodgeUntil && time - this.lastDodgeAfterimage > 55) {
       this.lastDodgeAfterimage = time
-      const ghost = this.add.image(this.player.x, this.player.y, 'guardianMotion', this.player.frame.name)
+      const ghost = this.add.image(this.player.x, this.player.y, 'guardianUnarmed', this.player.frame.name)
         .setDisplaySize(this.player.displayWidth, this.player.displayHeight).setAlpha(.3).setTint(0xaad8db).setDepth(this.player.depth - 1)
       this.tweens.add({ targets: ghost, alpha: 0, scaleX: ghost.scaleX * .88, scaleY: ghost.scaleY * .88, duration: 220, onComplete: () => ghost.destroy() })
     }
@@ -268,6 +277,17 @@ class PossessionScene extends Phaser.Scene {
       const shadow = e.getData('shadow') as Phaser.GameObjects.Ellipse | undefined
       if (shadow) shadow.setPosition(e.x, e.y + 27).setDepth(e.depth - 1).setAlpha(e.alpha * .55)
     })
+  }
+
+  updateWeaponVisual(time: number) {
+    const name = this.weaponSlot === 1 ? this.melee : this.gun
+    const key = `weapon-${name}`
+    if (this.weaponVisual.texture.key !== key) this.weaponVisual.setTexture(key)
+    const heights: Record<string, number> = { sword: 84, spear: 108, dagger: 58, pistol: 54, shotgun: 66 }
+    this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
+    this.weaponVisual.setPosition(this.player.x + (this.player.flipX ? -8 : 8), this.player.y + 4)
+      .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible)
+    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(this.player.flipX ? -36 : 36)
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -378,9 +398,12 @@ class PossessionScene extends Phaser.Scene {
     if (this.time.now - this.lastAttack < (this.weaponSlot === 1 ? 330 : 460)) return
     this.lastAttack = this.time.now
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, x, y)
+    this.aimAngle = angle
     this.player.setFlipX(x < this.player.x)
     if (this.weaponSlot === 2) {
       this.playerActionUntil = this.time.now + 180
+      this.weaponActionUntil = this.time.now + 180
+      this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle) + 45)
       this.tweens.add({ targets: this.player, x: this.player.x - Math.cos(angle) * 10, y: this.player.y - Math.sin(angle) * 10, duration: 55, yoyo: true, ease: 'Quad.Out' })
       const flash = this.add.circle(this.player.x + Math.cos(angle) * 52, this.player.y + Math.sin(angle) * 52, this.gun === 'shotgun' ? 18 : 10, 0xffd58a, .9).setDepth(45)
       this.tweens.add({ targets: flash, alpha: 0, scale: 2.3, duration: 90, onComplete: () => flash.destroy() })
@@ -394,7 +417,11 @@ class PossessionScene extends Phaser.Scene {
       return
     }
     this.playerActionUntil = this.time.now + 320
+    this.weaponActionUntil = this.time.now + 320
     this.player.play('guardian-slash', true)
+    const startAngle = this.player.flipX ? -95 : 95
+    this.weaponVisual.setAngle(startAngle)
+    this.tweens.add({ targets: this.weaponVisual, angle: this.player.flipX ? 55 : -55, duration: 210, ease: 'Cubic.Out' })
     const range = this.melee === 'spear' ? 145 : this.melee === 'dagger' ? 75 : 105
     const damage = (this.melee === 'spear' ? 28 : this.melee === 'dagger' ? 18 : 24) * this.meleeLevel * this.powerMultiplier()
     const slash = this.add.arc(this.player.x, this.player.y, range, Phaser.Math.RadToDeg(angle) - 35, Phaser.Math.RadToDeg(angle) + 35, false, 0xe9d5b5, .32).setDepth(30)
@@ -408,7 +435,9 @@ class PossessionScene extends Phaser.Scene {
   parry() {
     this.parryUntil = this.time.now + 240
     this.playerActionUntil = this.time.now + 430
+    this.weaponActionUntil = this.time.now + 430
     this.player.play('guardian-parry', true)
+    this.weaponVisual.setAngle(this.player.flipX ? -8 : 8)
     this.player.setTint(0xe8cf8b)
     this.time.delayedCall(250, () => this.player.clearTint())
   }
