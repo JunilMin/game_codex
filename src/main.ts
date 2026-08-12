@@ -17,7 +17,7 @@ const H = 720
 const MAP_W = 3200
 const MAP_H = 3200
 
-type MissionPhase = 'seals' | 'slaughter' | 'neutralization' | 'boss' | 'extract'
+type MissionPhase = 'seals' | 'slaughter' | 'boss' | 'extract'
 
 class PossessionScene extends Phaser.Scene {
   player!: Phaser.Physics.Arcade.Sprite
@@ -62,7 +62,6 @@ class PossessionScene extends Phaser.Scene {
   missionPhase: MissionPhase = 'seals'
   sealsActivated = 0
   enemiesKilled = 0
-  highRiskNeutralizations = 0
   isChannelingSeal = false
   isPaused = false
   pausePanel!: Phaser.GameObjects.Container
@@ -176,7 +175,6 @@ class PossessionScene extends Phaser.Scene {
     this.missionPhase = 'seals'
     this.sealsActivated = 0
     this.enemiesKilled = 0
-    this.highRiskNeutralizations = 0
     this.isChannelingSeal = false
     this.isPaused = false
     this.sealNodes = []
@@ -304,13 +302,14 @@ class PossessionScene extends Phaser.Scene {
     const loadout=this.add.text(640,205,'일시정지 중 장비 변경',{fontFamily:'Arial',fontSize:'17px',color:'#bfaea4'}).setOrigin(.5)
     const state=this.add.text(640,260,'',{fontFamily:'Arial',fontSize:'18px',color:'#ffffff',align:'center'}).setOrigin(.5)
     const items:Phaser.GameObjects.GameObject[]=[bg,title,loadout,state]
-    const button=(x:number,y:number,label:string,fn:()=>void)=>{const b=this.add.text(x,y,label,{fontFamily:'Arial',fontSize:'17px',color:'#fff',backgroundColor:'#402b30',padding:{x:18,y:12}}).setOrigin(.5).setInteractive({useHandCursor:true}).on('pointerdown',()=>{fn();refresh()});items.push(b)}
+    const button=(x:number,y:number,label:string,fn:()=>void)=>{const b=this.add.text(x,y,label,{fontFamily:'Arial',fontSize:'17px',color:'#fff',backgroundColor:'#402b30',padding:{x:18,y:12}}).setOrigin(.5).setScrollFactor(0).setInteractive({useHandCursor:true}).on('pointerdown',(_pointer:Phaser.Input.Pointer,_x:number,_y:number,event:Phaser.Types.Input.EventData)=>{event.stopPropagation();fn();refresh()});items.push(b)}
     button(500,325,'검',()=>this.melee='sword');button(610,325,'창',()=>this.melee='spear')
     button(500,385,'활',()=>this.gun='bow');button(610,385,'샷건',()=>this.gun='shotgun')
     button(755,325,'계속하기',()=>this.togglePause());(items[items.length-1] as Phaser.GameObjects.Text).setName('pauseContinue')
     button(755,385,'다시 시작',()=>this.scene.restart())
     const refresh=()=>state.setText(`근접 [1]  ${this.melee.toUpperCase()}\n원거리 [2]  ${this.gun.toUpperCase()}`)
-    this.pausePanel=this.add.container(0,0,items).setScrollFactor(0).setDepth(500).setVisible(false)
+    items.forEach(item=>(item as unknown as Phaser.GameObjects.Text).setScrollFactor(0))
+    this.pausePanel=this.add.container(0,0,items).setScrollFactor(0,0,true).setDepth(500).setVisible(false)
     refresh()
   }
 
@@ -378,15 +377,10 @@ class PossessionScene extends Phaser.Scene {
       }
     } else if (this.missionPhase === 'slaughter') {
       if (this.enemiesKilled >= 500) {
-        this.missionPhase = 'neutralization'
-        this.instruction.setText('500마리 처리 완료 · 고위험 상태에서 악마 30마리를 중화하십시오')
-      }
-    } else if (this.missionPhase === 'neutralization') {
-      if (this.highRiskNeutralizations >= 30) {
         this.missionPhase = 'boss'
         this.enemies.getChildren().forEach(o=>(o as Phaser.Physics.Arcade.Sprite).getData('shadow')?.destroy())
         this.enemies.clear(true,true)
-        this.instruction.setText('고위험 중화 30회 완료 · 중앙 문지기가 출현합니다')
+        this.instruction.setText('500마리 처리 완료 · 중앙 문지기가 출현합니다')
       }
     } else if (this.missionPhase === 'extract') {
       if (Phaser.Math.Distance.Between(this.player.x, this.player.y, this.extraction.x, this.extraction.y) < 105) this.endGame(true)
@@ -395,6 +389,8 @@ class PossessionScene extends Phaser.Scene {
 
   activateSeal(node: Phaser.GameObjects.Container) {
     node.setData('activated', true)
+    this.isChannelingSeal = false
+    this.activeSeal = undefined
     this.sealsActivated++
     this.interactProgress = 0
     const aura = node.list[0] as Phaser.GameObjects.Arc
@@ -427,7 +423,7 @@ class PossessionScene extends Phaser.Scene {
     this.player.setAlpha(time < this.dodgeUntil ? .55 : 1)
     this.updatePlayerAnimation(time, v)
 
-    if (['seals','slaughter','neutralization'].includes(this.missionPhase) && time - this.lastSpawn > 125 && this.enemies.countActive() < 140) { this.spawnEnemy(); this.lastSpawn = time }
+    if (['seals','slaughter'].includes(this.missionPhase) && time - this.lastSpawn > 125 && this.enemies.countActive() < 140) { this.spawnEnemy(); this.lastSpawn = time }
     if (this.missionPhase === 'boss' && !this.bossActive) this.spawnBoss()
     this.updateMission(time)
     this.updateEnemies(time)
@@ -714,7 +710,6 @@ class PossessionScene extends Phaser.Scene {
   neutralizeEnemy(enemy: Phaser.Physics.Arcade.Sprite) {
     if (!enemy.active) return
     this.enemiesKilled++
-    if(this.missionPhase==='neutralization'&&this.possession>=80) this.highRiskNeutralizations++
     this.possession = Math.max(0, this.possession - 4)
     enemy.disableBody(true, false).setTint(0xb9fff0).play('demon-death', true)
     const halo = this.add.circle(enemy.x, enemy.y, 18, 0xaaffea, .25).setStrokeStyle(5, 0xd9fff6, .95).setDepth(70)
@@ -816,9 +811,9 @@ class PossessionScene extends Phaser.Scene {
         .fillStyle(0xb5353b).fillRect(450, 37, 380 * this.bossHp / 100, 9)
         .fillStyle(0x8de6cf).fillRect(450, 55, 380 * this.purification / 100, 7)
     }
-    const done=this.missionPhase==='seals'?0:this.missionPhase==='slaughter'?1:this.missionPhase==='neutralization'?2:3
+    const done=this.missionPhase==='seals'?0:this.missionPhase==='slaughter'?1:2
     const mark=(index:number)=>index<done?'✓':index===done?'▶':'○'
-    this.objectiveText.setText(`QUESTS\n${mark(0)} 1. 봉인석 해제  ${this.sealsActivated}/3\n${mark(1)} 2. 악마 섬멸  ${Math.min(this.enemiesKilled,500)}/500\n${mark(2)} 3. 위험 중화  ${this.highRiskNeutralizations}/30\n   빙의율 80% 이상에서 우클릭 중화${this.missionPhase==='boss'?'\n\n▶ 중앙 문지기 처형':this.missionPhase==='extract'?'\n\n✓ 보스 처형 · 탈출 지점 복귀':''}`)
+    this.objectiveText.setText(`QUESTS\n${mark(0)} 1. 봉인석 해제  ${this.sealsActivated}/3\n${mark(1)} 2. 악마 섬멸  ${Math.min(this.enemiesKilled,500)}/500${this.missionPhase==='boss'?'\n\n▶ 중앙 문지기 처형':this.missionPhase==='extract'?'\n\n✓ 보스 처형 · 탈출 지점 복귀':''}`)
     this.drawRadar()
     const vignette = document.querySelector<HTMLDivElement>('#vignette')!
     vignette.style.opacity = String(Math.max(0, (this.possession - 55) / 45))
