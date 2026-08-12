@@ -1,15 +1,15 @@
 import Phaser from 'phaser'
 import './style.css'
 
-type Melee = 'sword' | 'spear' | 'dagger'
-type Gun = 'pistol' | 'shotgun'
+type Melee = 'sword' | 'spear'
+type Gun = 'bow' | 'shotgun'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 app.innerHTML = `
   <main class="shell">
     <header><span class="kicker">PROTOTYPE 01</span><h1>POSSESSION</h1><p>지옥문이 열렸다. 빼앗기기 전에 공포를 심어라.</p></header>
     <section id="game-wrap"><div id="game"></div><div id="vignette"></div></section>
-    <footer>WASD 이동 · 좌클릭 공격 · 우클릭 패링 · SPACE 회피 · Q 신성한 약 · 1/2 무기 전환</footer>
+    <footer>WASD 이동 · 좌클릭 공격 · 우클릭 악성 중화 · SPACE 회피 · Q 신성한 약 · 1/2 무기 전환</footer>
   </main>`
 
 const W = 1280
@@ -25,12 +25,12 @@ class PossessionScene extends Phaser.Scene {
   keys!: Record<string, Phaser.Input.Keyboard.Key>
   cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   possession = 12
-  fear = 0
+  purification = 0
   bossHp = 100
   medicine = 3
   points = 5
   melee: Melee = 'sword'
-  gun: Gun = 'pistol'
+  gun: Gun = 'bow'
   weaponSlot = 1
   meleeLevel = 1
   gunLevel = 1
@@ -65,7 +65,7 @@ class PossessionScene extends Phaser.Scene {
     this.load.spritesheet('guardianUnarmed', '/assets/guardian-unarmed-v2.png', { frameWidth: 400, frameHeight: 313 })
     this.load.spritesheet('demonMotion', '/assets/demon-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('bossMotion', '/assets/gatekeeper-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
-    for (const name of ['sword', 'spear', 'dagger', 'pistol', 'shotgun']) this.load.image(`weapon-${name}`, `/assets/weapon-${name}.png`)
+    for (const name of ['sword', 'spear', 'bow', 'shotgun']) this.load.image(`weapon-${name}`, `/assets/weapon-${name}.png`)
   }
 
   create() {
@@ -87,7 +87,7 @@ class PossessionScene extends Phaser.Scene {
     this.player.body!.setSize(105, 62).setOffset(148, 228)
     this.player.play('guardian-idle')
     this.playerShadow = this.add.ellipse(640, 594, 50, 17, 0x000000, .58).setDepth(18)
-    this.weaponVisual = this.add.image(640, 570, 'weapon-sword').setDepth(22)
+    this.weaponVisual = this.add.image(640, 570, 'weapon-sword').setDepth(22).setVisible(false)
     this.boss = this.physics.add.sprite(640, 145, 'bossMotion', 0).setDisplaySize(174, 174).setDepth(20).setImmovable(true).setVisible(false).setActive(false)
     this.boss.body!.setSize(380, 300).setOffset(180, 400)
     this.bossShadow = this.add.ellipse(640, 195, 108, 34, 0x000000, .62).setDepth(18).setVisible(false)
@@ -95,7 +95,6 @@ class PossessionScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.walls)
     this.physics.add.collider(this.enemies, this.walls)
     this.physics.add.collider(this.boss, this.walls)
-    this.physics.add.overlap(this.player, this.enemies, (_, e) => this.playerHit(e as Phaser.Physics.Arcade.Sprite, 9))
     this.physics.add.overlap(this.player, this.enemyShots, (_, s) => { (s as Phaser.Physics.Arcade.Sprite).destroy(); this.playerHit(undefined, 12) })
     this.physics.add.overlap(this.bullets, this.enemies, (b, e) => { (b as Phaser.Physics.Arcade.Sprite).destroy(); this.damageEnemy(e as Phaser.Physics.Arcade.Sprite, 22 * this.powerMultiplier()) })
     this.physics.add.overlap(this.bullets, this.boss, (b) => { (b as Phaser.Physics.Arcade.Sprite).destroy(); this.damageBoss(7 * this.powerMultiplier()) })
@@ -116,12 +115,12 @@ class PossessionScene extends Phaser.Scene {
 
   resetRunState() {
     this.possession = 12
-    this.fear = 0
+    this.purification = 0
     this.bossHp = 100
     this.medicine = 3
     this.points = 5
     this.melee = 'sword'
-    this.gun = 'pistol'
+    this.gun = 'bow'
     this.weaponSlot = 1
     this.meleeLevel = 1
     this.gunLevel = 1
@@ -201,11 +200,10 @@ class PossessionScene extends Phaser.Scene {
     }
     button(420, 380, '검 선택', () => { this.melee = 'sword' })
     button(535, 380, '창 선택', () => { if (this.spend(1)) this.melee = 'spear' })
-    button(650, 380, '단검 선택', () => { if (this.spend(1)) this.melee = 'dagger' })
-    button(420, 440, '권총 선택', () => { this.gun = 'pistol' })
+    button(420, 440, '마력 활 선택', () => { this.gun = 'bow' })
     button(555, 440, '산탄총 선택', () => { if (this.spend(1)) this.gun = 'shotgun' })
-    button(750, 380, '근접 강화 +1', () => { if (this.spend(1)) this.meleeLevel++ })
-    button(750, 440, '총기 강화 +1', () => { if (this.spend(1)) this.gunLevel++ })
+    button(700, 380, '근접 강화 +1', () => { if (this.spend(1)) this.meleeLevel++ })
+    button(700, 440, '원거리 강화 +1', () => { if (this.spend(1)) this.gunLevel++ })
     const start = button(640, 545, '지옥문으로 진입', () => { this.preparePanel.setVisible(false); this.gameStarted = true; this.startWave() }).setOrigin(.5)
     const refresh = () => {
       info.setText(`근접 슬롯 [1]  ${this.melee.toUpperCase()}  Lv.${this.meleeLevel}\n원거리 슬롯 [2]  ${this.gun.toUpperCase()}  Lv.${this.gunLevel}\n신성한 약 [Q]  3개 지급`)
@@ -218,6 +216,7 @@ class PossessionScene extends Phaser.Scene {
   spend(n: number) { if (this.points < n) return false; this.points -= n; return true }
 
   startWave() {
+    this.weaponVisual.setVisible(true)
     this.wave++
     this.waveStarted = this.time.now
     this.lastSpawn = 0
@@ -283,19 +282,12 @@ class PossessionScene extends Phaser.Scene {
     const name = this.weaponSlot === 1 ? this.melee : this.gun
     const key = `weapon-${name}`
     if (this.weaponVisual.texture.key !== key) this.weaponVisual.setTexture(key)
-    const heights: Record<string, number> = { sword: 84, spear: 108, dagger: 58, pistol: 54, shotgun: 66 }
-    const anchors: Record<string, [number, number]> = {
-      sword: [.16, .9], spear: [.12, .93], dagger: [.17, .9], pistol: [.3, .86], shotgun: [.28, .88]
-    }
-    const handOffsets: Record<string, [number, number]> = {
-      sword: [5, 5], spear: [4, 6], dagger: [6, 5], pistol: [7, 1], shotgun: [6, 2]
-    }
+    const heights: Record<string, number> = { sword: 116, spear: 150, bow: 104, shotgun: 82 }
     this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
-    this.weaponVisual.setOrigin(anchors[name][0], anchors[name][1])
     const side = this.player.flipX ? -1 : 1
-    this.weaponVisual.setPosition(this.player.x + handOffsets[name][0] * side, this.player.y + handOffsets[name][1])
-      .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible)
-    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(this.player.flipX ? -18 : 18)
+    this.weaponVisual.setOrigin(.5).setPosition(this.player.x + 34 * side, this.player.y - 2)
+      .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible).setAlpha(.96)
+    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(this.player.flipX ? -28 : 28)
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -340,7 +332,7 @@ class PossessionScene extends Phaser.Scene {
     this.bossActive = true
     this.boss.setPosition(640, 115).setVisible(true).setActive(true).setAlpha(0).setAngle(0)
     this.boss.play('boss-idle')
-    this.bossHp = 100; this.fear = 0; this.executable = false
+    this.bossHp = 100; this.purification = 0; this.executable = false
     this.boss.setData('nextAttack', this.time.now + 1300).setData('attackCount', 0)
     this.tweens.add({ targets: this.boss, alpha: 1, y: 165, duration: 700, ease: 'Back.Out' })
     this.cameras.main.flash(450, 90, 10, 18)
@@ -383,7 +375,7 @@ class PossessionScene extends Phaser.Scene {
     const angle = Phaser.Math.Angle.Between(this.boss.x, this.boss.y, this.player.x, this.player.y)
     const cone = this.add.arc(this.boss.x, this.boss.y, 180, Phaser.Math.RadToDeg(angle) - 28, Phaser.Math.RadToDeg(angle) + 28, false, color, .24).setDepth(16)
     const ring = this.add.circle(this.boss.x, this.boss.y, 100).setStrokeStyle(7, color, .9).setDepth(28)
-    const cue = this.add.text(this.boss.x, this.boss.y - 115, parryable ? 'PARRY' : 'DODGE', {
+    const cue = this.add.text(this.boss.x, this.boss.y - 115, parryable ? 'NEUTRALIZE' : 'DODGE', {
       fontFamily: 'Georgia', fontSize: '17px', fontStyle: 'bold', color: parryable ? '#ffe19a' : '#d8a8ff',
       backgroundColor: '#09080dcc', padding: { x: 9, y: 5 }
     }).setOrigin(.5).setDepth(40)
@@ -430,8 +422,8 @@ class PossessionScene extends Phaser.Scene {
     const startAngle = this.player.flipX ? -95 : 95
     this.weaponVisual.setAngle(startAngle)
     this.tweens.add({ targets: this.weaponVisual, angle: this.player.flipX ? 55 : -55, duration: 210, ease: 'Cubic.Out' })
-    const range = this.melee === 'spear' ? 145 : this.melee === 'dagger' ? 75 : 105
-    const damage = (this.melee === 'spear' ? 28 : this.melee === 'dagger' ? 18 : 24) * this.meleeLevel * this.powerMultiplier()
+    const range = this.melee === 'spear' ? 160 : 125
+    const damage = (this.melee === 'spear' ? 28 : 24) * this.meleeLevel * this.powerMultiplier()
     const slash = this.add.arc(this.player.x, this.player.y, range, Phaser.Math.RadToDeg(angle) - 35, Phaser.Math.RadToDeg(angle) + 35, false, 0xe9d5b5, .32).setDepth(30)
     this.tweens.add({ targets: slash, alpha: 0, duration: 150, onComplete: () => slash.destroy() })
     if (this.bossActive && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y) < range + 35) {
@@ -451,19 +443,31 @@ class PossessionScene extends Phaser.Scene {
   }
 
   successfulParry() {
-    this.fear = Math.min(100, this.fear + 18)
+    this.purification = Math.min(100, this.purification + 18)
     this.cameras.main.shake(100, .006)
     this.boss.setVelocity((this.boss.x - this.player.x) * 3, (this.boss.y - this.player.y) * 3)
     const burst = this.add.star((this.player.x + this.boss.x) / 2, (this.player.y + this.boss.y) / 2, 8, 8, 34, 0xffe2a1, .95).setDepth(60)
     this.tweens.add({ targets: burst, alpha: 0, scale: 2.2, angle: 45, duration: 220, onComplete: () => burst.destroy() })
-    this.instruction.setText(`패링 성공 · 공포 ${Math.round(this.fear)}%`)
+    this.instruction.setText(`중화 성공 · 악성 중화율 ${Math.round(this.purification)}%`)
     this.time.delayedCall(700, () => { if (!this.executable) this.instruction.setText('') })
-    if (this.fear >= 100) this.makeExecutable('공포에 굴복했습니다')
+    if (this.purification >= 100) this.makeExecutable('악성이 완전히 중화되었습니다')
+  }
+
+  neutralizeEnemy(enemy: Phaser.Physics.Arcade.Sprite) {
+    if (!enemy.active) return
+    this.possession = Math.max(0, this.possession - 4)
+    enemy.disableBody(true, false).setTint(0xb9fff0).play('demon-death', true)
+    const halo = this.add.circle(enemy.x, enemy.y, 18, 0xaaffea, .25).setStrokeStyle(5, 0xd9fff6, .95).setDepth(70)
+    const seal = this.add.star(enemy.x, enemy.y, 8, 12, 31, 0xeafff8, .9).setDepth(71)
+    this.tweens.add({ targets: [halo, seal], scale: 2.8, alpha: 0, angle: 80, duration: 420, onComplete: () => { halo.destroy(); seal.destroy() } })
+    this.tweens.add({ targets: enemy, alpha: 0, y: enemy.y - 28, duration: 450, onComplete: () => { (enemy.getData('shadow') as Phaser.GameObjects.Ellipse | undefined)?.destroy(); enemy.destroy() } })
+    this.instruction.setText('악성 중화 성공 · 빙의율 4% 감소')
+    this.time.delayedCall(700, () => { if (!this.executable) this.instruction.setText('') })
   }
 
   playerHit(source?: Phaser.Physics.Arcade.Sprite, amount = 10) {
     if (this.time.now < this.dodgeUntil) return
-    if (this.time.now < this.parryUntil && source) { source.destroy(); this.possession = Math.max(0, this.possession - 2); return }
+    if (this.time.now < this.parryUntil && source) { this.neutralizeEnemy(source); return }
     this.possession = Math.min(100, this.possession + amount)
     this.cameras.main.shake(150, .008)
     this.player.setTint(0xb92f3b); this.time.delayedCall(180, () => this.player.clearTint())
@@ -525,7 +529,7 @@ class PossessionScene extends Phaser.Scene {
     if (this.bossActive) {
       this.bossBar.fillStyle(0x17151a, .95).fillRoundedRect(440, 25, 400, 50, 7)
         .fillStyle(0xb5353b).fillRect(450, 37, 380 * this.bossHp / 100, 9)
-        .fillStyle(0xd2b37a).fillRect(450, 55, 380 * this.fear / 100, 7)
+        .fillStyle(0x8de6cf).fillRect(450, 55, 380 * this.purification / 100, 7)
     }
     const vignette = document.querySelector<HTMLDivElement>('#vignette')!
     vignette.style.opacity = String(Math.max(0, (this.possession - 55) / 45))
@@ -533,6 +537,7 @@ class PossessionScene extends Phaser.Scene {
 
   endGame(win: boolean) {
     this.gameStarted = false
+    this.weaponVisual.setVisible(false)
     this.physics.pause()
     if (!win) this.tweens.add({ targets: this.player, angle: 90, alpha: .25, y: this.player.y + 24, duration: 520, ease: 'Cubic.In' })
     const panel = this.add.rectangle(640, 360, 620, 300, 0x0c0c10, .96).setStrokeStyle(2, win ? 0xc3a66c : 0x8f2731).setDepth(300)
