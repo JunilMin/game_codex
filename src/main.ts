@@ -196,7 +196,7 @@ class PossessionScene extends Phaser.Scene {
 
   drawOperationMap() {
     this.cameras.main.setBackgroundColor('#090a0d')
-    this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellWall').setTileScale(.42).setDepth(0).setTint(0x806f72)
+    this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellWall').setTileScale(.42).setDepth(0).setTint(0x33282d)
     const pathMaskShape=this.make.graphics({x:0,y:0})
     const routes = [[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
     pathMaskShape.lineStyle(390,0xffffff,1)
@@ -205,16 +205,14 @@ class PossessionScene extends Phaser.Scene {
     const floor=this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellFloor').setTileScale(.5).setDepth(1).setTint(0xc4a7a0)
     floor.setMask(pathMaskShape.createGeometryMask())
     const g = this.add.graphics().setDepth(2)
-    g.lineStyle(8,0xe35c43,.28)
-    for (const [x1,y1,x2,y2] of routes) g.lineBetween(x1,y1,x2,y2)
     g.lineStyle(2,0x8d7968,.16)
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) if(this.isWalkable(x,y)) g.strokeCircle(x,y,Phaser.Math.Between(18,55))
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) {
       if (this.isWalkable(x,y)) continue
       this.makeObstacle(x,y,158,158)
       const shade=((x+y)/160)%3
-      g.fillStyle(shade===0?0x09090c:shade===1?0x130b0e:0x07080a,.12).fillRect(x-79,y-79,158,158)
-      g.lineStyle(2,0x7b312f,.18).strokeRect(x-72,y-72,144,144)
+      g.fillStyle(shade===0?0x030305:shade===1?0x080407:0x020304,.48).fillRect(x-79,y-79,158,158)
+      g.lineStyle(2,0x4b2629,.12).strokeRect(x-72,y-72,144,144)
     }
     g.lineStyle(12,0xbb3d32,.65).strokeRect(5,5,MAP_W-10,MAP_H-10)
     this.decorateOperationMap(g)
@@ -302,14 +300,15 @@ class PossessionScene extends Phaser.Scene {
 
   createPauseMenu() {
     const bg=this.add.rectangle(640,360,600,500,0x090a0e,.97).setStrokeStyle(3,0x8d3b42)
-    const title=this.add.text(640,145,'PAUSED',{fontFamily:'Georgia',fontSize:'44px',color:'#f0dfca'}).setOrigin(.5)
+    const title=this.add.text(640,145,'PAUSED',{fontFamily:'Georgia',fontSize:'44px',color:'#f0dfca'}).setOrigin(.5).setName('pauseTitle')
     const loadout=this.add.text(640,205,'일시정지 중 장비 변경',{fontFamily:'Arial',fontSize:'17px',color:'#bfaea4'}).setOrigin(.5)
     const state=this.add.text(640,260,'',{fontFamily:'Arial',fontSize:'18px',color:'#ffffff',align:'center'}).setOrigin(.5)
     const items:Phaser.GameObjects.GameObject[]=[bg,title,loadout,state]
     const button=(x:number,y:number,label:string,fn:()=>void)=>{const b=this.add.text(x,y,label,{fontFamily:'Arial',fontSize:'17px',color:'#fff',backgroundColor:'#402b30',padding:{x:18,y:12}}).setOrigin(.5).setInteractive({useHandCursor:true}).on('pointerdown',()=>{fn();refresh()});items.push(b)}
     button(500,325,'검',()=>this.melee='sword');button(610,325,'창',()=>this.melee='spear')
     button(500,385,'활',()=>this.gun='bow');button(610,385,'샷건',()=>this.gun='shotgun')
-    button(755,325,'계속하기',()=>this.togglePause());button(755,385,'다시 시작',()=>this.scene.restart())
+    button(755,325,'계속하기',()=>this.togglePause());(items[items.length-1] as Phaser.GameObjects.Text).setName('pauseContinue')
+    button(755,385,'다시 시작',()=>this.scene.restart())
     const refresh=()=>state.setText(`근접 [1]  ${this.melee.toUpperCase()}\n원거리 [2]  ${this.gun.toUpperCase()}`)
     this.pausePanel=this.add.container(0,0,items).setScrollFactor(0).setDepth(500).setVisible(false)
     refresh()
@@ -332,15 +331,17 @@ class PossessionScene extends Phaser.Scene {
       const t = this.add.text(x, y, label, { fontFamily: 'Arial', fontSize: '17px', color: '#e8ddd2', backgroundColor: '#34262a', padding: { x: 17, y: 11 } }).setInteractive({ useHandCursor: true }).on('pointerdown', () => { fn(); refresh() })
       buttons.push(t); return t
     }
-    button(470, 370, '검 선택', () => { this.melee = 'sword' })
-    button(590, 370, '창 선택', () => { this.melee = 'spear' })
-    button(710, 370, '마력 활', () => { this.gun = 'bow' })
-    button(830, 370, '산탄총', () => { this.gun = 'shotgun' })
+    const meleeLabel=this.add.text(455,355,'근접 무기',{fontFamily:'Arial',fontSize:'16px',color:'#aa9891'}).setOrigin(.5)
+    const rangedLabel=this.add.text(455,425,'원거리 무기',{fontFamily:'Arial',fontSize:'16px',color:'#aa9891'}).setOrigin(.5)
+    button(580, 355, '검 선택', () => { this.melee = 'sword' })
+    button(700, 355, '창 선택', () => { this.melee = 'spear' })
+    button(580, 425, '마력 활', () => { this.gun = 'bow' })
+    button(700, 425, '산탄총', () => { this.gun = 'shotgun' })
     const start = button(640, 545, '지옥문으로 진입', () => { this.preparePanel.setVisible(false); this.gameStarted = true; this.startWave() }).setOrigin(.5)
     const refresh = () => {
       info.setText(`근접 슬롯 [1]  ${this.melee.toUpperCase()}\n원거리 슬롯 [2]  ${this.gun.toUpperCase()}\n신성한 약 [Q]  3개 지급`)
     }
-    this.preparePanel = this.add.container(0, 0, [bg, title, sub, info, ...buttons]).setScrollFactor(0).setDepth(200)
+    this.preparePanel = this.add.container(0, 0, [bg, title, sub, info, meleeLabel, rangedLabel, ...buttons]).setScrollFactor(0).setDepth(200)
     void start; refresh()
   }
 
@@ -839,7 +840,14 @@ class PossessionScene extends Phaser.Scene {
     this.gameStarted = false
     this.weaponVisual.setVisible(false)
     this.physics.pause()
-    if (!win) this.tweens.add({ targets: this.player, angle: 90, alpha: .25, y: this.player.y + 24, duration: 520, ease: 'Cubic.In' })
+    if (!win) {
+      this.isPaused=true
+      this.player.setVelocity(0).setAlpha(.3).setTint(0x6f1d29)
+      ;(this.pausePanel.getByName('pauseTitle') as Phaser.GameObjects.Text).setText('VESSEL LOST').setColor('#d34248')
+      ;(this.pausePanel.getByName('pauseContinue') as Phaser.GameObjects.Text).setVisible(false).disableInteractive()
+      this.pausePanel.setVisible(true)
+      return
+    }
     const panel = this.add.rectangle(640, 360, 620, 300, 0x0c0c10, .96).setStrokeStyle(2, win ? 0xc3a66c : 0x8f2731).setDepth(300)
     const title = this.add.text(640, 285, win ? 'GATE SEALED' : 'VESSEL LOST', { fontFamily: 'Georgia', fontSize: '46px', color: win ? '#e8d5ad' : '#d34248' }).setOrigin(.5).setDepth(301)
     const copy = this.add.text(640, 355, win ? '공포를 이겨내고 악마를 처형했습니다.' : '육체가 완전히 빼앗겼습니다.', { fontFamily: 'Arial', fontSize: '18px', color: '#c9bdb4' }).setOrigin(.5).setDepth(301)
