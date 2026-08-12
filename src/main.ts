@@ -112,8 +112,22 @@ class PossessionScene extends Phaser.Scene {
     this.physics.add.collider(this.enemies, this.walls)
     this.physics.add.collider(this.boss, this.walls)
     this.physics.add.overlap(this.player, this.enemyShots, (_, s) => { (s as Phaser.Physics.Arcade.Sprite).destroy(); this.playerHit(undefined, 25) })
-    this.physics.add.overlap(this.bullets, this.enemies, (b, e) => { const shot = b as Phaser.Physics.Arcade.Sprite; const damage = shot.getData('damage') ?? 22; shot.destroy(); this.damageEnemy(e as Phaser.Physics.Arcade.Sprite, damage) })
-    this.physics.add.overlap(this.bullets, this.boss, (b) => { const shot = b as Phaser.Physics.Arcade.Sprite; const damage = shot.getData('damage') ?? 22; shot.destroy(); this.damageBoss(damage * .38) })
+    this.physics.add.overlap(this.bullets, this.enemies, (b, e) => {
+      const shot=b as Phaser.Physics.Arcade.Sprite, enemy=e as Phaser.Physics.Arcade.Sprite
+      const hitTargets=shot.getData('hitTargets') as Set<Phaser.GameObjects.GameObject>|undefined
+      if(hitTargets?.has(enemy)) return
+      hitTargets?.add(enemy)
+      this.damageEnemy(enemy,shot.getData('damage')??22)
+      if(!shot.getData('piercing')) shot.destroy()
+    })
+    this.physics.add.overlap(this.bullets, this.boss, (b) => {
+      const shot=b as Phaser.Physics.Arcade.Sprite
+      const hitTargets=shot.getData('hitTargets') as Set<Phaser.GameObjects.GameObject>|undefined
+      if(hitTargets?.has(this.boss)) return
+      hitTargets?.add(this.boss)
+      this.damageBoss((shot.getData('damage')??22)*.38)
+      if(!shot.getData('piercing')) shot.destroy()
+    })
 
     const kb = this.input.keyboard!
     this.cursors = kb.createCursorKeys()
@@ -470,9 +484,11 @@ class PossessionScene extends Phaser.Scene {
     const ranged = this.weaponSlot === 2
     const wx = ranged ? this.player.x + Math.cos(this.aimAngle) * 62 : this.player.x + 62 * side
     const wy = ranged ? this.player.y - 18 + Math.sin(this.aimAngle) * 30 : this.player.y - 58
+    const visualFlip=ranged?(name==='bow'&&this.player.flipX):this.player.flipX
+    const rangedOffset=name==='bow'?180:name==='shotgun'?65:0
     this.weaponVisual.setOrigin(.5).setPosition(wx, wy)
-      .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible).setAlpha(.96)
-    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(ranged ? Phaser.Math.RadToDeg(this.aimAngle) + (name === 'bow' ? 180 : 0) : (this.player.flipX ? -28 : 28))
+      .setFlipX(visualFlip).setDepth(this.player.depth + 1).setVisible(this.player.visible).setAlpha(.96)
+    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(ranged ? Phaser.Math.RadToDeg(this.aimAngle)+rangedOffset : (this.player.flipX ? -28 : 28))
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -597,13 +613,13 @@ class PossessionScene extends Phaser.Scene {
     this.playerActionUntil = this.time.now + 320
     this.weaponActionUntil = this.time.now + 320
     this.player.play('guardian-slash', true)
-    const startAngle = this.player.flipX ? -95 : 95
+    const startAngle = this.player.flipX ? -135 : 135
     this.weaponVisual.setAngle(startAngle)
-    this.tweens.add({ targets: this.weaponVisual, angle: this.player.flipX ? 55 : -55, duration: 210, ease: 'Cubic.Out' })
+    this.tweens.add({ targets: this.weaponVisual, angle: this.player.flipX ? 90 : -90, duration: 265, ease: 'Cubic.Out' })
     const range = this.melee === 'spear' ? 240 : 188
     const damage = (this.melee === 'spear' ? 28 : 24) * this.meleeLevel * this.powerMultiplier()
-    const slash = this.add.arc(this.player.x, this.player.y, range, Phaser.Math.RadToDeg(angle) - 35, Phaser.Math.RadToDeg(angle) + 35, false, 0xe9d5b5, .32).setDepth(30)
-    this.tweens.add({ targets: slash, alpha: 0, duration: 150, onComplete: () => slash.destroy() })
+    const slash = this.add.arc(this.player.x, this.player.y, range, Phaser.Math.RadToDeg(angle) - 53, Phaser.Math.RadToDeg(angle) + 53, false, 0xe9d5b5, .32).setDepth(30)
+    this.tweens.add({ targets: slash, alpha: 0, scale:1.12, duration: 210, onComplete: () => slash.destroy() })
     if (this.bossActive && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y) < range + 35) {
       if (this.executable) this.executeBoss(); else this.damageBoss(damage * .32)
     }
@@ -626,8 +642,8 @@ class PossessionScene extends Phaser.Scene {
     this.time.delayedCall(180, () => {
       if (!this.gameStarted) return
       const arrow = this.bullets.create(bx, by, 'arrow') as Phaser.Physics.Arcade.Sprite
-      arrow.setData('damage', 42 * this.gunLevel * this.powerMultiplier()).setVelocity(Math.cos(angle) * 720, Math.sin(angle) * 720).setAngle(Phaser.Math.RadToDeg(angle)).setDepth(35)
-      this.time.delayedCall(1200, () => { if (arrow.active) arrow.destroy() })
+      arrow.setData('damage',42*this.gunLevel*this.powerMultiplier()).setData('piercing',true).setData('hitTargets',new Set()).setVelocity(Math.cos(angle)*900,Math.sin(angle)*900).setAngle(Phaser.Math.RadToDeg(angle)).setDepth(35)
+      this.time.delayedCall(4000, () => { if (arrow.active) arrow.destroy() })
       this.tweens.add({ targets: this.player, x: this.player.x - Math.cos(angle) * 5, y: this.player.y - Math.sin(angle) * 5, duration: 55, yoyo: true })
     })
   }
@@ -635,7 +651,7 @@ class PossessionScene extends Phaser.Scene {
   fireShotgun(angle: number) {
     this.playerActionUntil = this.time.now + 310
     this.weaponActionUntil = this.time.now + 310
-    const forwardAngle = Phaser.Math.RadToDeg(angle)
+    const forwardAngle = Phaser.Math.RadToDeg(angle)+65
     const recoilAngle = forwardAngle + (Math.cos(angle) < 0 ? 34 : -34)
     this.weaponVisual.setAngle(forwardAngle)
     this.tweens.killTweensOf(this.weaponVisual)
