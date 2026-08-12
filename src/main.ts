@@ -169,21 +169,38 @@ class PossessionScene extends Phaser.Scene {
 
   drawOperationMap() {
     this.cameras.main.setBackgroundColor('#090a0d')
-    for (let y = 360; y < MAP_H; y += 720) for (let x = 640; x < MAP_W; x += 1280) {
-      this.add.image(x, y, 'arena').setDisplaySize(1280, 720).setDepth(0).setAlpha(.72).setFlipX(((x + y) / 640) % 2 === 0)
-    }
     const g = this.add.graphics().setDepth(2)
-    g.fillStyle(0x08090c, .28).fillRect(0, 0, MAP_W, MAP_H)
-    g.lineStyle(34, 0x262329, .72)
-    g.beginPath().moveTo(400, 2780).lineTo(700, 2200).lineTo(1550, 1600).lineTo(740, 900).moveTo(1550,1600).lineTo(2550,820).moveTo(1550,1600).lineTo(2600,2450).strokePath()
-    g.lineStyle(3, 0x82705d, .18).strokeRoundedRect(40, 40, MAP_W - 80, MAP_H - 80, 24)
-    const obstacles = [[820,2550,180,100],[1170,2230,120,210],[1970,2600,210,100],[2450,2180,130,230],[2730,1500,180,110],[2260,1050,140,230],[1450,850,220,100],[690,1370,140,240],[1050,1650,170,110],[1850,1840,150,120]]
-    for (const [x,y,w,h] of obstacles) {
-      g.fillStyle(0x17171b, .95).fillRoundedRect(x-w/2,y-h/2,w,h,20)
-      g.lineStyle(5,0x4d4140,.75).strokeRoundedRect(x-w/2,y-h/2,w,h,20)
-      g.fillStyle(0x6d2429,.22).fillCircle(x,y,Math.min(w,h)*.42)
-      this.makeObstacle(x,y,w,h)
+    g.fillStyle(0x07080b).fillRect(0, 0, MAP_W, MAP_H)
+    const routes = [[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
+    g.lineStyle(390,0x17171c,1)
+    for (const [x1,y1,x2,y2] of routes) g.lineBetween(x1,y1,x2,y2)
+    for (const [x,y] of [[400,2780],[720,820],[2580,760],[2630,2440],[1550,1550]]) g.fillStyle(0x17171c).fillCircle(x,y,x===1550?300:235)
+    g.lineStyle(8,0x51433e,.75)
+    for (const [x1,y1,x2,y2] of routes) g.lineBetween(x1,y1,x2,y2)
+    g.lineStyle(2,0x8d7968,.16)
+    for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) if(this.isWalkable(x,y)) g.strokeCircle(x,y,Phaser.Math.Between(18,55))
+    for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) {
+      if (this.isWalkable(x,y)) continue
+      this.makeObstacle(x,y,158,158)
+      const shade=((x+y)/160)%3
+      g.fillStyle(shade===0?0x0e1014:shade===1?0x111217:0x0b0d10,1).fillRect(x-79,y-79,158,158)
+      g.lineStyle(2,0x29262a,.7).strokeRect(x-72,y-72,144,144)
+      g.fillStyle(0x3f2025,.18).fillCircle(x+Phaser.Math.Between(-30,30),y+Phaser.Math.Between(-30,30),Phaser.Math.Between(18,46))
     }
+    g.lineStyle(12,0x6b3538,.8).strokeRect(5,5,MAP_W-10,MAP_H-10)
+  }
+
+  isWalkable(x:number,y:number) {
+    const hubs=[[400,2780,235],[720,820,235],[2580,760,235],[2630,2440,235],[1550,1550,300]]
+    if(hubs.some(([hx,hy,r])=>Phaser.Math.Distance.Between(x,y,hx,hy)<r)) return true
+    const routes=[[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
+    return routes.some(([x1,y1,x2,y2])=>Phaser.Math.Distance.Between(x,y,Phaser.Math.Clamp(x,x1<x2?x1:x2,x1>x2?x1:x2),Phaser.Math.Clamp(y,y1<y2?y1:y2,y1>y2?y1:y2))<205 && this.distanceToSegment(x,y,x1,y1,x2,y2)<195)
+  }
+
+  distanceToSegment(px:number,py:number,x1:number,y1:number,x2:number,y2:number) {
+    const dx=x2-x1,dy=y2-y1
+    const t=Phaser.Math.Clamp(((px-x1)*dx+(py-y1)*dy)/(dx*dx+dy*dy),0,1)
+    return Phaser.Math.Distance.Between(px,py,x1+t*dx,y1+t*dy)
   }
 
   createMissionObjects() {
@@ -373,20 +390,23 @@ class PossessionScene extends Phaser.Scene {
     this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
     const side = this.player.flipX ? -1 : 1
     const ranged = this.weaponSlot === 2
-    const wx = ranged ? this.player.x + Math.cos(this.aimAngle) * 48 : this.player.x + 36 * side
-    const wy = ranged ? this.player.y - 12 + Math.sin(this.aimAngle) * 24 : this.player.y - 18
+    const wx = ranged ? this.player.x + Math.cos(this.aimAngle) * 48 : this.player.x + 48 * side
+    const wy = ranged ? this.player.y - 12 + Math.sin(this.aimAngle) * 24 : this.player.y - 42
     this.weaponVisual.setOrigin(.5).setPosition(wx, wy)
       .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible).setAlpha(.96)
-    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(ranged ? Phaser.Math.RadToDeg(this.aimAngle) : (this.player.flipX ? -28 : 28))
+    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(ranged ? Phaser.Math.RadToDeg(this.aimAngle) + (name === 'bow' ? 180 : 0) : (this.player.flipX ? -28 : 28))
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
   speedMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.05 : this.possession < 80 ? 1.2 : Math.max(.58, 1.1 - (this.possession - 80) * .027) }
 
   spawnEnemy() {
-    const a = Phaser.Math.FloatBetween(0, Math.PI * 2)
-    const distance = Phaser.Math.Between(520, 760)
-    const p = [Phaser.Math.Clamp(this.player.x + Math.cos(a)*distance, 80, MAP_W-80), Phaser.Math.Clamp(this.player.y + Math.sin(a)*distance, 80, MAP_H-80)]
+    let p=[this.player.x+300,this.player.y]
+    for(let tries=0;tries<24;tries++) {
+      const a=Phaser.Math.FloatBetween(0,Math.PI*2), distance=Phaser.Math.Between(300,620)
+      const candidate=[Phaser.Math.Clamp(this.player.x+Math.cos(a)*distance,80,MAP_W-80),Phaser.Math.Clamp(this.player.y+Math.sin(a)*distance,80,MAP_H-80)]
+      if(this.isWalkable(candidate[0],candidate[1])) { p=candidate; break }
+    }
     const e = this.enemies.create(p[0], p[1], 'demonMotion', 0) as Phaser.Physics.Arcade.Sprite
     e.setDisplaySize(88, 88).setData('hp', 32).setData('nextHit', 0).setDepth(18).setTint(0xe1ced0)
     e.setData('born', this.time.now)
@@ -515,7 +535,7 @@ class PossessionScene extends Phaser.Scene {
   drawAndFireBow(angle: number) {
     this.playerActionUntil = this.time.now + 300
     this.weaponActionUntil = this.time.now + 300
-    this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle))
+    this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle) + 180)
     const bx = this.player.x + Math.cos(angle) * 48
     const by = this.player.y - 12 + Math.sin(angle) * 24
     this.weaponVisual.setPosition(bx, by)
@@ -554,6 +574,7 @@ class PossessionScene extends Phaser.Scene {
     this.playerActionUntil = this.time.now + 430
     this.weaponActionUntil = this.time.now + 430
     this.player.play('guardian-parry', true)
+    this.weaponVisual.setPosition(this.player.x + (this.player.flipX ? -55 : 55), this.player.y - 48)
     this.weaponVisual.setAngle(this.player.flipX ? -8 : 8)
     this.player.setTint(0xe8cf8b)
     this.time.delayedCall(250, () => this.player.clearTint())
