@@ -652,9 +652,12 @@ class PossessionScene extends Phaser.Scene {
     if (this.time.now < this.parryUntil && source) { this.neutralizeEnemy(source); return }
     this.possession = Math.min(100, this.possession + amount)
     this.cameras.main.shake(150, .008)
-    this.player.setTint(0xb92f3b); this.time.delayedCall(180, () => this.player.clearTint())
+    this.tweens.killTweensOf(this.player)
+    this.player.setDisplaySize(92, 92).setTint(0xb92f3b)
+    this.time.delayedCall(180, () => { if (this.player.active) this.player.clearTint().setDisplaySize(92, 92) })
     this.playerActionUntil = this.time.now + 240
-    this.tweens.add({ targets: this.player, scaleX: this.player.scaleX * 1.12, scaleY: this.player.scaleY * .82, duration: 70, yoyo: true })
+    const knockAngle = source ? Phaser.Math.Angle.Between(source.x, source.y, this.player.x, this.player.y) : Phaser.Math.FloatBetween(0, Math.PI * 2)
+    this.tweens.add({ targets: this.player, x: this.player.x + Math.cos(knockAngle) * 9, y: this.player.y + Math.sin(knockAngle) * 9, duration: 65, yoyo: true, ease: 'Quad.Out' })
   }
 
   damageEnemy(e: Phaser.Physics.Arcade.Sprite, n: number) {
