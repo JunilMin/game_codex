@@ -96,8 +96,8 @@ class PossessionScene extends Phaser.Scene {
     this.physics.add.collider(this.enemies, this.walls)
     this.physics.add.collider(this.boss, this.walls)
     this.physics.add.overlap(this.player, this.enemyShots, (_, s) => { (s as Phaser.Physics.Arcade.Sprite).destroy(); this.playerHit(undefined, 12) })
-    this.physics.add.overlap(this.bullets, this.enemies, (b, e) => { (b as Phaser.Physics.Arcade.Sprite).destroy(); this.damageEnemy(e as Phaser.Physics.Arcade.Sprite, 22 * this.powerMultiplier()) })
-    this.physics.add.overlap(this.bullets, this.boss, (b) => { (b as Phaser.Physics.Arcade.Sprite).destroy(); this.damageBoss(7 * this.powerMultiplier()) })
+    this.physics.add.overlap(this.bullets, this.enemies, (b, e) => { const shot = b as Phaser.Physics.Arcade.Sprite; const damage = shot.getData('damage') ?? 22; shot.destroy(); this.damageEnemy(e as Phaser.Physics.Arcade.Sprite, damage) })
+    this.physics.add.overlap(this.bullets, this.boss, (b) => { const shot = b as Phaser.Physics.Arcade.Sprite; const damage = shot.getData('damage') ?? 22; shot.destroy(); this.damageBoss(damage * .38) })
 
     const kb = this.input.keyboard!
     this.cursors = kb.createCursorKeys()
@@ -146,6 +146,7 @@ class PossessionScene extends Phaser.Scene {
     if (this.textures.exists('bullet')) return
     const g = this.make.graphics({ x: 0, y: 0 })
     g.fillStyle(0xf6d477).fillCircle(5, 5, 5).generateTexture('bullet', 10, 10).clear()
+    g.lineStyle(3, 0xc8fff2).lineBetween(2, 5, 27, 5).fillStyle(0xeafff8).fillTriangle(28, 5, 20, 1, 20, 9).generateTexture('arrow', 30, 10).clear()
     g.fillStyle(0xb63e45).fillCircle(6, 6, 6).generateTexture('enemyShot', 12, 12).destroy()
   }
 
@@ -285,9 +286,12 @@ class PossessionScene extends Phaser.Scene {
     const heights: Record<string, number> = { sword: 116, spear: 150, bow: 104, shotgun: 82 }
     this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
     const side = this.player.flipX ? -1 : 1
-    this.weaponVisual.setOrigin(.5).setPosition(this.player.x + 34 * side, this.player.y - 2)
+    const ranged = this.weaponSlot === 2
+    const wx = ranged ? this.player.x + Math.cos(this.aimAngle) * 48 : this.player.x + 36 * side
+    const wy = ranged ? this.player.y - 12 + Math.sin(this.aimAngle) * 24 : this.player.y - 18
+    this.weaponVisual.setOrigin(.5).setPosition(wx, wy)
       .setFlipX(this.player.flipX).setDepth(this.player.depth + 1).setVisible(this.player.visible).setAlpha(.96)
-    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(this.player.flipX ? -28 : 28)
+    if (time >= this.weaponActionUntil) this.weaponVisual.setAngle(ranged ? Phaser.Math.RadToDeg(this.aimAngle) : (this.player.flipX ? -28 : 28))
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -401,19 +405,8 @@ class PossessionScene extends Phaser.Scene {
     this.aimAngle = angle
     this.player.setFlipX(x < this.player.x)
     if (this.weaponSlot === 2) {
-      this.playerActionUntil = this.time.now + 180
-      this.weaponActionUntil = this.time.now + 180
-      this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle) + 45)
-      this.tweens.add({ targets: this.player, x: this.player.x - Math.cos(angle) * 10, y: this.player.y - Math.sin(angle) * 10, duration: 55, yoyo: true, ease: 'Quad.Out' })
-      const flash = this.add.circle(this.player.x + Math.cos(angle) * 52, this.player.y + Math.sin(angle) * 52, this.gun === 'shotgun' ? 18 : 10, 0xffd58a, .9).setDepth(45)
-      this.tweens.add({ targets: flash, alpha: 0, scale: 2.3, duration: 90, onComplete: () => flash.destroy() })
-      const pellets = this.gun === 'shotgun' ? 5 : 1
-      for (let i = 0; i < pellets; i++) {
-        const a = angle + (i - (pellets - 1) / 2) * .11
-        const b = this.bullets.create(this.player.x, this.player.y, 'bullet') as Phaser.Physics.Arcade.Sprite
-        b.setVelocity(Math.cos(a) * 560, Math.sin(a) * 560).setDepth(30)
-        this.time.delayedCall(900, () => b.destroy())
-      }
+      if (this.gun === 'bow') this.drawAndFireBow(angle)
+      else this.fireShotgun(angle)
       return
     }
     this.playerActionUntil = this.time.now + 320
@@ -430,6 +423,43 @@ class PossessionScene extends Phaser.Scene {
       if (this.executable) this.executeBoss(); else this.damageBoss(damage * .32)
     }
     this.enemies.getChildren().forEach(o => { const e = o as Phaser.Physics.Arcade.Sprite; if (Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y) < range) this.damageEnemy(e, damage) })
+  }
+
+  drawAndFireBow(angle: number) {
+    this.playerActionUntil = this.time.now + 300
+    this.weaponActionUntil = this.time.now + 300
+    this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle))
+    const bx = this.player.x + Math.cos(angle) * 48
+    const by = this.player.y - 12 + Math.sin(angle) * 24
+    this.weaponVisual.setPosition(bx, by)
+    const px = -Math.sin(angle), py = Math.cos(angle)
+    const pullX = bx - Math.cos(angle) * 28, pullY = by - Math.sin(angle) * 28
+    const string = this.add.graphics().setDepth(this.player.depth + 2)
+    string.lineStyle(2, 0xb9fff0, .95).lineBetween(bx + px * 42, by + py * 42, pullX, pullY).lineBetween(pullX, pullY, bx - px * 42, by - py * 42)
+    const glow = this.add.circle(pullX, pullY, 7, 0xcafff3, .8).setDepth(this.player.depth + 3)
+    this.tweens.add({ targets: [string, glow], alpha: 0, duration: 210, delay: 90, onComplete: () => { string.destroy(); glow.destroy() } })
+    this.time.delayedCall(180, () => {
+      if (!this.gameStarted) return
+      const arrow = this.bullets.create(bx, by, 'arrow') as Phaser.Physics.Arcade.Sprite
+      arrow.setData('damage', 42 * this.gunLevel * this.powerMultiplier()).setVelocity(Math.cos(angle) * 720, Math.sin(angle) * 720).setAngle(Phaser.Math.RadToDeg(angle)).setDepth(35)
+      this.time.delayedCall(1200, () => { if (arrow.active) arrow.destroy() })
+      this.tweens.add({ targets: this.player, x: this.player.x - Math.cos(angle) * 5, y: this.player.y - Math.sin(angle) * 5, duration: 55, yoyo: true })
+    })
+  }
+
+  fireShotgun(angle: number) {
+    this.playerActionUntil = this.time.now + 180
+    this.weaponActionUntil = this.time.now + 180
+    this.weaponVisual.setAngle(Phaser.Math.RadToDeg(angle))
+    this.tweens.add({ targets: this.player, x: this.player.x - Math.cos(angle) * 10, y: this.player.y - Math.sin(angle) * 10, duration: 55, yoyo: true, ease: 'Quad.Out' })
+    const flash = this.add.circle(this.player.x + Math.cos(angle) * 58, this.player.y + Math.sin(angle) * 58, 18, 0xffd58a, .9).setDepth(45)
+    this.tweens.add({ targets: flash, alpha: 0, scale: 2.3, duration: 90, onComplete: () => flash.destroy() })
+    for (let i = 0; i < 5; i++) {
+      const a = angle + (i - 2) * .11
+      const pellet = this.bullets.create(this.player.x, this.player.y, 'bullet') as Phaser.Physics.Arcade.Sprite
+      pellet.setData('damage', 13 * this.gunLevel * this.powerMultiplier()).setVelocity(Math.cos(a) * 560, Math.sin(a) * 560).setDepth(30)
+      this.time.delayedCall(700, () => { if (pellet.active) pellet.destroy() })
+    }
   }
 
   parry() {
