@@ -78,6 +78,8 @@ class PossessionScene extends Phaser.Scene {
 
   preload() {
     this.load.image('arena', '/assets/hellgate-arena.png')
+    this.load.image('hellFloor', '/assets/hell-basalt-floor-v1.png')
+    this.load.image('hellWall', '/assets/hell-fortress-wall-v1.png')
     this.load.spritesheet('guardianMotion', '/assets/guardian-motion-v3.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('guardianUnarmed', '/assets/guardian-unarmed-v2.png', { frameWidth: 400, frameHeight: 313 })
     this.load.spritesheet('demonMotion', '/assets/demon-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
@@ -181,13 +183,16 @@ class PossessionScene extends Phaser.Scene {
 
   drawOperationMap() {
     this.cameras.main.setBackgroundColor('#090a0d')
-    const g = this.add.graphics().setDepth(2)
-    g.fillStyle(0x07080b).fillRect(0, 0, MAP_W, MAP_H)
+    this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellWall').setTileScale(.42).setDepth(0).setTint(0x806f72)
+    const pathMaskShape=this.make.graphics({x:0,y:0})
     const routes = [[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
-    g.lineStyle(390,0x17171c,1)
-    for (const [x1,y1,x2,y2] of routes) g.lineBetween(x1,y1,x2,y2)
-    for (const [x,y] of [[400,2780],[720,820],[2580,760],[2630,2440],[1550,1550]]) g.fillStyle(0x17171c).fillCircle(x,y,x===1550?300:235)
-    g.lineStyle(8,0x51433e,.75)
+    pathMaskShape.lineStyle(390,0xffffff,1)
+    for(const [x1,y1,x2,y2] of routes) pathMaskShape.lineBetween(x1,y1,x2,y2)
+    for(const [x,y] of [[400,2780],[720,820],[2580,760],[2630,2440],[1550,1550]]) pathMaskShape.fillStyle(0xffffff).fillCircle(x,y,x===1550?300:235)
+    const floor=this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellFloor').setTileScale(.5).setDepth(1).setTint(0xc4a7a0)
+    floor.setMask(pathMaskShape.createGeometryMask())
+    const g = this.add.graphics().setDepth(2)
+    g.lineStyle(8,0xe35c43,.28)
     for (const [x1,y1,x2,y2] of routes) g.lineBetween(x1,y1,x2,y2)
     g.lineStyle(2,0x8d7968,.16)
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) if(this.isWalkable(x,y)) g.strokeCircle(x,y,Phaser.Math.Between(18,55))
@@ -195,11 +200,10 @@ class PossessionScene extends Phaser.Scene {
       if (this.isWalkable(x,y)) continue
       this.makeObstacle(x,y,158,158)
       const shade=((x+y)/160)%3
-      g.fillStyle(shade===0?0x0e1014:shade===1?0x111217:0x0b0d10,1).fillRect(x-79,y-79,158,158)
-      g.lineStyle(2,0x29262a,.7).strokeRect(x-72,y-72,144,144)
-      g.fillStyle(0x3f2025,.18).fillCircle(x+Phaser.Math.Between(-30,30),y+Phaser.Math.Between(-30,30),Phaser.Math.Between(18,46))
+      g.fillStyle(shade===0?0x09090c:shade===1?0x130b0e:0x07080a,.12).fillRect(x-79,y-79,158,158)
+      g.lineStyle(2,0x7b312f,.18).strokeRect(x-72,y-72,144,144)
     }
-    g.lineStyle(12,0x6b3538,.8).strokeRect(5,5,MAP_W-10,MAP_H-10)
+    g.lineStyle(12,0xbb3d32,.65).strokeRect(5,5,MAP_W-10,MAP_H-10)
     this.decorateOperationMap(g)
   }
 
