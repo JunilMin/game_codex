@@ -241,6 +241,12 @@ class PossessionScene extends Phaser.Scene {
     floor.setMask(pathMask)
     const floorLight=this.add.rectangle(MAP_W/2,MAP_H/2,MAP_W,MAP_H,0xffe2cf,.1).setDepth(1.2)
     floorLight.setMask(pathMask)
+    // 셀 단위 벽 장식이 길에 일부만 닿을 때 생기던 밝은 사각 포켓을 제거한다.
+    // 이동 마스크의 정확한 반전 영역 전체를 어둡게 덮어 밝은 곳=이동 가능을 보장한다.
+    const blockedLayer=this.add.renderTexture(0,0,MAP_W,MAP_H).setOrigin(0).setDepth(1.4)
+    const darkness=this.make.graphics({x:0,y:0}).fillStyle(0x000106,.76).fillRect(0,0,MAP_W,MAP_H)
+    blockedLayer.draw(darkness).erase(pathMaskShape)
+    darkness.destroy()
     const g = this.add.graphics().setDepth(2)
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) {
       if(this.cellIntersectsWalkable(x,y,79))continue
