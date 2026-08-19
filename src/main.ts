@@ -128,6 +128,7 @@ class PossessionScene extends Phaser.Scene {
     this.weaponVisual = this.add.image(400, 2780, 'weapon-sword').setDepth(22).setVisible(false)
     this.boss = this.physics.add.sprite(1600, 1500, 'bossMotion', 0).setDisplaySize(261, 261).setDepth(20).setImmovable(true).setVisible(false).setActive(false).setTint(0xc5aaa8)
     this.boss.body!.setSize(380, 300).setOffset(180, 400)
+    this.boss.disableBody(true,true)
     this.bossShadow = this.add.ellipse(1600, 1575, 140, 34, 0x000000, .4).setDepth(18).setVisible(false)
     this.bossContactShadows=[this.add.ellipse(1560,1571,48,11,0x000000,.72),this.add.ellipse(1640,1571,48,11,0x000000,.72)].map(s=>s.setDepth(19).setVisible(false))
 
@@ -823,7 +824,7 @@ class PossessionScene extends Phaser.Scene {
     this.bossActive = true
     this.bossHp = 300; this.purification = 0; this.executable = false
     this.showNarrativeModal('울부짖는 천사','문지기를 나에게 데려오라','내 성광은 악마의 육체를 태울 수 있다.\n문지기의 공격을 견디며 이곳까지 유인하라.','닫기',()=>{
-      this.boss.setPosition(1600,1500).setVisible(true).setActive(true).setAlpha(0).setAngle(0).play('boss-idle')
+      this.boss.enableBody(true,1600,1500,true,true).setAlpha(0).setAngle(0).play('boss-idle')
       this.boss.setData('nextAttack',this.time.now+1300).setData('attackCount',0).setData('actionUntil',0)
       this.tweens.add({targets:this.boss,alpha:1,y:1550,duration:700,ease:'Back.Out'})
       this.instruction.setText('빙의된 문지기 · 공격을 패링해 공포를 채우십시오')
@@ -1152,7 +1153,7 @@ class PossessionScene extends Phaser.Scene {
     }
     this.bossActive=false
     for(const b of this.activeBosses()){
-      b.setActive(false).setFrame(15)
+      b.disableBody(true,false).setFrame(15)
       for(let i=0;i<34;i++){const a=Phaser.Math.FloatBetween(0,Math.PI*2),d=Phaser.Math.Between(90,260);const blood=this.add.rectangle(b.x,b.y,Phaser.Math.Between(22,75),Phaser.Math.Between(3,9),i%4?0x8e1723:0xe34b45,.9).setOrigin(0,.5).setRotation(a).setDepth(80);this.tweens.add({targets:blood,x:b.x+Math.cos(a)*d,y:b.y+Math.sin(a)*d,scaleX:2.4,alpha:0,duration:Phaser.Math.Between(260,520),onComplete:()=>blood.destroy()})}
       this.tweens.add({targets:b,alpha:0,scaleX:b.scaleX*1.8,scaleY:b.scaleY*.3,duration:420,onComplete:()=>b.setVisible(false)})
       ;(b.getData('shadow') as Phaser.GameObjects.Ellipse|undefined)?.destroy()
