@@ -15,6 +15,14 @@ const W = 1280
 const H = 720
 const MAP_W = 3200
 const MAP_H = 3200
+const WALKABLE_RADIUS = 245
+const WALKABLE_ROUTES: [number,number,number,number][] = [
+  [400,2780,720,2200], [720,2200,1550,1550], [1550,1550,720,820],
+  [1550,1550,2580,760], [1550,1550,2630,2440]
+]
+const WALKABLE_HUBS: [number,number,number][] = [
+  [400,2780,285], [720,820,285], [2580,760,285], [2630,2440,285], [1550,1550,350]
+]
 
 type MissionPhase = 'seals' | 'slaughter' | 'boss' | 'extract'
 
@@ -211,23 +219,22 @@ class PossessionScene extends Phaser.Scene {
 
   drawOperationMap() {
     this.cameras.main.setBackgroundColor('#090a0d')
-    this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellWall').setTileScale(.42).setDepth(0).setTint(0x100c0f)
+    this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellWall').setTileScale(.42).setDepth(0).setTint(0x080609)
+    this.add.rectangle(MAP_W/2,MAP_H/2,MAP_W,MAP_H,0x020204,.38).setDepth(.2)
     const pathMaskShape=this.make.graphics({x:0,y:0})
-    const routes = [[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
-    const hubs=[[400,2780],[720,820],[2580,760],[2630,2440],[1550,1550]]
-    pathMaskShape.lineStyle(390,0xffffff,1)
-    for(const [x1,y1,x2,y2] of routes) pathMaskShape.lineBetween(x1,y1,x2,y2)
-    for(const [x,y] of hubs) pathMaskShape.fillStyle(0xffffff).fillCircle(x,y,x===1550?300:235)
+    pathMaskShape.lineStyle(WALKABLE_RADIUS*2,0xffffff,1)
+    for(const [x1,y1,x2,y2] of WALKABLE_ROUTES) pathMaskShape.lineBetween(x1,y1,x2,y2)
+    for(const [x,y,r] of WALKABLE_HUBS) pathMaskShape.fillStyle(0xffffff).fillCircle(x,y,r)
 
     const pathBorder=this.add.graphics().setDepth(.8)
-    pathBorder.lineStyle(434,0x040306,.99)
-    for(const [x1,y1,x2,y2] of routes) pathBorder.lineBetween(x1,y1,x2,y2)
+    pathBorder.lineStyle(WALKABLE_RADIUS*2+44,0x040306,.99)
+    for(const [x1,y1,x2,y2] of WALKABLE_ROUTES) pathBorder.lineBetween(x1,y1,x2,y2)
     pathBorder.fillStyle(0x040306,.99)
-    for(const [x,y] of hubs) pathBorder.fillCircle(x,y,x===1550?320:255)
-    pathBorder.lineStyle(408,0x7c3437,.76)
-    for(const [x1,y1,x2,y2] of routes) pathBorder.lineBetween(x1,y1,x2,y2)
+    for(const [x,y,r] of WALKABLE_HUBS) pathBorder.fillCircle(x,y,r+20)
+    pathBorder.lineStyle(WALKABLE_RADIUS*2+18,0x7c3437,.76)
+    for(const [x1,y1,x2,y2] of WALKABLE_ROUTES) pathBorder.lineBetween(x1,y1,x2,y2)
     pathBorder.fillStyle(0x7c3437,.76)
-    for(const [x,y] of hubs) pathBorder.fillCircle(x,y,x===1550?308:243)
+    for(const [x,y,r] of WALKABLE_HUBS) pathBorder.fillCircle(x,y,r+8)
 
     const pathMask=pathMaskShape.createGeometryMask()
     const floor=this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellFloor').setTileScale(.5).setDepth(1).setTint(0xf1d8c9)
@@ -275,12 +282,8 @@ class PossessionScene extends Phaser.Scene {
   }
 
   isWalkable(x:number,y:number) {
-    // 렌더링 경계의 안티앨리어싱과 캐릭터 중심점 오차까지 포함한다.
-    // 화면상 길로 보이는 가장자리에서 판정이 먼저 끊기지 않도록 여유 폭을 둔다.
-    const hubs=[[400,2780,285],[720,820,285],[2580,760,285],[2630,2440,285],[1550,1550,350]]
-    if(hubs.some(([hx,hy,r])=>Phaser.Math.Distance.Between(x,y,hx,hy)<r)) return true
-    const routes=[[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
-    return routes.some(([x1,y1,x2,y2])=>this.distanceToSegment(x,y,x1,y1,x2,y2)<245)
+    if(WALKABLE_HUBS.some(([hx,hy,r])=>Phaser.Math.Distance.Between(x,y,hx,hy)<r)) return true
+    return WALKABLE_ROUTES.some(([x1,y1,x2,y2])=>this.distanceToSegment(x,y,x1,y1,x2,y2)<WALKABLE_RADIUS)
   }
 
   distanceToSegment(px:number,py:number,x1:number,y1:number,x2:number,y2:number) {
@@ -292,23 +295,21 @@ class PossessionScene extends Phaser.Scene {
   cellIntersectsWalkable(cx:number,cy:number,half:number) {
     const left=cx-half,right=cx+half,top=cy-half,bottom=cy+half
     const pointRectDistance=(px:number,py:number)=>Phaser.Math.Distance.Between(px,py,Phaser.Math.Clamp(px,left,right),Phaser.Math.Clamp(py,top,bottom))
-    const hubs=[[400,2780,235],[720,820,235],[2580,760,235],[2630,2440,235],[1550,1550,300]]
-    if(hubs.some(([x,y,r])=>pointRectDistance(x,y)<r))return true
+    if(WALKABLE_HUBS.some(([x,y,r])=>pointRectDistance(x,y)<r))return true
     const cross=(ax:number,ay:number,bx:number,by:number,cx2:number,cy2:number)=>(bx-ax)*(cy2-ay)-(by-ay)*(cx2-ax)
     const intersects=(ax:number,ay:number,bx:number,by:number,cx2:number,cy2:number,dx:number,dy:number)=>{
       const abC=cross(ax,ay,bx,by,cx2,cy2),abD=cross(ax,ay,bx,by,dx,dy)
       const cdA=cross(cx2,cy2,dx,dy,ax,ay),cdB=cross(cx2,cy2,dx,dy,bx,by)
       return abC*abD<=0&&cdA*cdB<=0
     }
-    const routes=[[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
-    return routes.some(([x1,y1,x2,y2])=>{
+    return WALKABLE_ROUTES.some(([x1,y1,x2,y2])=>{
       if((x1>=left&&x1<=right&&y1>=top&&y1<=bottom)||(x2>=left&&x2<=right&&y2>=top&&y2<=bottom))return true
       if(intersects(x1,y1,x2,y2,left,top,right,top)||intersects(x1,y1,x2,y2,right,top,right,bottom)||intersects(x1,y1,x2,y2,right,bottom,left,bottom)||intersects(x1,y1,x2,y2,left,bottom,left,top))return true
       const cornerDistance=Math.min(
         this.distanceToSegment(left,top,x1,y1,x2,y2),this.distanceToSegment(right,top,x1,y1,x2,y2),
         this.distanceToSegment(right,bottom,x1,y1,x2,y2),this.distanceToSegment(left,bottom,x1,y1,x2,y2)
       )
-      return Math.min(cornerDistance,pointRectDistance(x1,y1),pointRectDistance(x2,y2))<195
+      return Math.min(cornerDistance,pointRectDistance(x1,y1),pointRectDistance(x2,y2))<WALKABLE_RADIUS
     })
   }
 
