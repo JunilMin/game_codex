@@ -232,7 +232,11 @@ class PossessionScene extends Phaser.Scene {
     floorLight.setMask(pathMask)
     const g = this.add.graphics().setDepth(2)
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) {
-      if (this.isWalkable(x,y)) continue
+      const overlapsRoad=[
+        [0,0],[-70,0],[70,0],[0,-70],[0,70],
+        [-55,-55],[55,-55],[-55,55],[55,55]
+      ].some(([ox,oy])=>this.isWalkable(x+ox,y+oy))
+      if(overlapsRoad)continue
       this.makeObstacle(x,y,158,158)
       const jag=()=>Phaser.Math.Between(-16,16)
       const rock=[
