@@ -275,10 +275,12 @@ class PossessionScene extends Phaser.Scene {
   }
 
   isWalkable(x:number,y:number) {
-    const hubs=[[400,2780,235],[720,820,235],[2580,760,235],[2630,2440,235],[1550,1550,300]]
+    // 렌더링 경계의 안티앨리어싱과 캐릭터 중심점 오차까지 포함한다.
+    // 화면상 길로 보이는 가장자리에서 판정이 먼저 끊기지 않도록 여유 폭을 둔다.
+    const hubs=[[400,2780,285],[720,820,285],[2580,760,285],[2630,2440,285],[1550,1550,350]]
     if(hubs.some(([hx,hy,r])=>Phaser.Math.Distance.Between(x,y,hx,hy)<r)) return true
     const routes=[[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
-    return routes.some(([x1,y1,x2,y2])=>this.distanceToSegment(x,y,x1,y1,x2,y2)<195)
+    return routes.some(([x1,y1,x2,y2])=>this.distanceToSegment(x,y,x1,y1,x2,y2)<245)
   }
 
   distanceToSegment(px:number,py:number,x1:number,y1:number,x2:number,y2:number) {
