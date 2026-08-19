@@ -132,7 +132,18 @@ class PossessionScene extends Phaser.Scene {
     this.bossShadow = this.add.ellipse(1600, 1575, 140, 34, 0x000000, .4).setDepth(18).setVisible(false)
     this.bossContactShadows=[this.add.ellipse(1560,1571,48,11,0x000000,.72),this.add.ellipse(1640,1571,48,11,0x000000,.72)].map(s=>s.setDepth(19).setVisible(false))
 
-    this.physics.add.collider(this.player,this.enemies)
+    this.physics.add.overlap(this.player,this.enemies,(_,enemyObject)=>{
+      const enemy=enemyObject as Phaser.Physics.Arcade.Sprite
+      if(!enemy.active)return
+      let angle=Phaser.Math.Angle.Between(this.player.x,this.player.y,enemy.x,enemy.y)
+      if(!Number.isFinite(angle))angle=Phaser.Math.FloatBetween(0,Math.PI*2)
+      const distance=Phaser.Math.Distance.Between(this.player.x,this.player.y,enemy.x,enemy.y)
+      const separation=Math.max(0,48-distance)
+      if(separation<=0)return
+      enemy.setPosition(enemy.x+Math.cos(angle)*separation,enemy.y+Math.sin(angle)*separation)
+      enemy.body?.updateFromGameObject()
+      enemy.setVelocity(Math.cos(angle)*150,Math.sin(angle)*150)
+    })
     this.physics.add.collider(this.player,this.boss)
     // 일반 악마는 통로 밖의 벽을 타고 넘어오며, 플레이어와 보스만 벽에 막힌다.
     this.physics.add.collider(this.boss, this.walls)
