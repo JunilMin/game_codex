@@ -120,7 +120,7 @@ class PossessionScene extends Phaser.Scene {
     this.enemies = this.physics.add.group()
     this.enemyShots = this.physics.add.group()
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H)
-    this.player = this.physics.add.sprite(400, 2780, 'guardianUnarmed', 0).setDisplaySize(92, 92).setDepth(20).setCollideWorldBounds(true).setTint(0xd0bbb5)
+    this.player = this.physics.add.sprite(400, 2780, 'guardianUnarmed', 0).setDisplaySize(92, 92).setDepth(20).setCollideWorldBounds(true).setPushable(false).setTint(0xd0bbb5)
     this.player.body!.setSize(105, 62).setOffset(148, 228)
     this.player.play('guardian-idle')
     this.playerShadow = this.add.ellipse(400, 2811, 42, 12, 0x000000, .38).setDepth(18)
@@ -132,7 +132,6 @@ class PossessionScene extends Phaser.Scene {
     this.bossShadow = this.add.ellipse(1600, 1575, 140, 34, 0x000000, .4).setDepth(18).setVisible(false)
     this.bossContactShadows=[this.add.ellipse(1560,1571,48,11,0x000000,.72),this.add.ellipse(1640,1571,48,11,0x000000,.72)].map(s=>s.setDepth(19).setVisible(false))
 
-    this.physics.add.collider(this.player,this.walls)
     this.physics.add.collider(this.player,this.enemies)
     this.physics.add.collider(this.player,this.boss)
     // 일반 악마는 통로 밖의 벽을 타고 넘어오며, 플레이어와 보스만 벽에 막힌다.
@@ -631,7 +630,7 @@ class PossessionScene extends Phaser.Scene {
     }
   }
 
-  update(time: number) {
+  update(time: number, delta: number) {
     if (!this.gameStarted) return
     if(this.cinematicPaused)return
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.togglePause()
@@ -643,9 +642,20 @@ class PossessionScene extends Phaser.Scene {
     let dx = (this.keys.D.isDown || this.cursors.right.isDown ? 1 : 0) - (this.keys.A.isDown || this.cursors.left.isDown ? 1 : 0)
     let dy = (this.keys.S.isDown || this.cursors.down.isDown ? 1 : 0) - (this.keys.W.isDown || this.cursors.up.isDown ? 1 : 0)
     const v = new Phaser.Math.Vector2(dx, dy).normalize().scale(220 * this.speedMultiplier() * (time < this.dodgeUntil ? 2.1 : 1))
-    this.player.setVelocity(v.x, v.y)
+    const movementStep=Math.min(delta,100)/1000
+    let vx=v.x,vy=v.y
+    const canMoveX=this.isWalkable(this.player.x+vx*movementStep,this.player.y)
+    const canMoveY=this.isWalkable(this.player.x,this.player.y+vy*movementStep)
+    if(!canMoveX)vx=0
+    if(!canMoveY)vy=0
+    if(!this.isWalkable(this.player.x+vx*movementStep,this.player.y+vy*movementStep)){
+      if(Math.abs(vx)>=Math.abs(vy))vy=0
+      else vx=0
+    }
+    const allowedVelocity=new Phaser.Math.Vector2(vx,vy)
+    this.player.setVelocity(vx,vy)
     this.player.setAlpha(time < this.dodgeUntil ? .55 : 1)
-    this.updatePlayerAnimation(time, v)
+    this.updatePlayerAnimation(time, allowedVelocity)
 
     if (['seals','slaughter'].includes(this.missionPhase) && time - this.lastSpawn > 21 && this.enemies.countActive() < 210) { this.spawnEnemy(); this.lastSpawn = time }
     if (this.missionPhase === 'boss' && !this.bossActive) this.spawnBoss()
