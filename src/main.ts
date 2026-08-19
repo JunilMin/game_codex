@@ -72,6 +72,8 @@ class PossessionScene extends Phaser.Scene {
   weaponVisual!: Phaser.GameObjects.Image
   aimAngle = -.7
   weaponActionUntil = 0
+  lastSafeX = 400
+  lastSafeY = 2780
   nextMeleeSwing = 1
   missionPhase: MissionPhase = 'seals'
   sealsActivated = 0
@@ -203,6 +205,8 @@ class PossessionScene extends Phaser.Scene {
     this.bossActionUntil = 0
     this.aimAngle = -.7
     this.weaponActionUntil = 0
+    this.lastSafeX=400
+    this.lastSafeY=2780
     this.nextMeleeSwing = 1
     this.missionPhase = 'seals'
     this.sealsActivated = 0
@@ -647,6 +651,13 @@ class PossessionScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.togglePause()
     if (this.isPaused) return
     if(this.physics.world.isPaused)this.physics.resume()
+    if(this.isWalkable(this.player.x,this.player.y)){
+      this.lastSafeX=this.player.x
+      this.lastSafeY=this.player.y
+    }else{
+      this.player.setPosition(this.lastSafeX,this.lastSafeY).setVelocity(0)
+      this.player.body?.updateFromGameObject()
+    }
     if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) this.useMedicine()
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.dodgeUntil = time + 280
 
@@ -1075,8 +1086,9 @@ class PossessionScene extends Phaser.Scene {
     this.player.setDisplaySize(92, 92).setTint(0xb92f3b)
     this.time.delayedCall(180, () => { if (this.player.active) this.player.setTint(0xd0bbb5).setDisplaySize(92, 92) })
     this.playerActionUntil = this.time.now + 240
-    const knockAngle = source ? Phaser.Math.Angle.Between(source.x, source.y, this.player.x, this.player.y) : Phaser.Math.FloatBetween(0, Math.PI * 2)
-    this.tweens.add({ targets: this.player, x: this.player.x + Math.cos(knockAngle) * 9, y: this.player.y + Math.sin(knockAngle) * 9, duration: 65, yoyo: true, ease: 'Quad.Out' })
+    // 좌표 넉백 트윈이 경계 밖에서 중단되면 이동 판정 전체가 잠기는 문제가 있어
+    // 실제 위치는 유지하고 짧은 시각적 반동만 적용한다.
+    this.tweens.add({targets:this.player,scaleX:this.player.scaleX*.92,scaleY:this.player.scaleY*1.08,duration:65,yoyo:true,ease:'Quad.Out'})
   }
 
   damageEnemy(e: Phaser.Physics.Arcade.Sprite, n: number) {
