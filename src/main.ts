@@ -83,6 +83,8 @@ class PossessionScene extends Phaser.Scene {
   objectiveText!: Phaser.GameObjects.Text
   interactProgress = 0
   activeSeal?: Phaser.GameObjects.Container
+  lastWalkableX = 400
+  lastWalkableY = 2780
 
   constructor() { super('possession') }
 
@@ -123,7 +125,7 @@ class PossessionScene extends Phaser.Scene {
     this.bossShadow = this.add.ellipse(1600, 1575, 140, 34, 0x000000, .4).setDepth(18).setVisible(false)
     this.bossContactShadows=[this.add.ellipse(1560,1571,48,11,0x000000,.72),this.add.ellipse(1640,1571,48,11,0x000000,.72)].map(s=>s.setDepth(19).setVisible(false))
 
-    this.physics.add.collider(this.player, this.walls)
+    // 플레이어 이동은 렌더링된 길과 동일한 isWalkable 기하 판정으로 제한한다.
     this.physics.add.collider(this.player,this.enemies)
     this.physics.add.collider(this.player,this.boss)
     // 일반 악마는 통로 밖의 벽을 타고 넘어오며, 플레이어와 보스만 벽에 막힌다.
@@ -194,6 +196,8 @@ class PossessionScene extends Phaser.Scene {
     this.awakenedStatues = []
     this.bossContactShadows=[]
     this.interactProgress = 0
+    this.lastWalkableX=400
+    this.lastWalkableY=2780
     this.activeSeal = undefined
     const vignette = document.querySelector<HTMLDivElement>('#vignette')
     if (vignette) vignette.style.opacity = '0'
@@ -274,7 +278,7 @@ class PossessionScene extends Phaser.Scene {
     const hubs=[[400,2780,235],[720,820,235],[2580,760,235],[2630,2440,235],[1550,1550,300]]
     if(hubs.some(([hx,hy,r])=>Phaser.Math.Distance.Between(x,y,hx,hy)<r)) return true
     const routes=[[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
-    return routes.some(([x1,y1,x2,y2])=>Phaser.Math.Distance.Between(x,y,Phaser.Math.Clamp(x,x1<x2?x1:x2,x1>x2?x1:x2),Phaser.Math.Clamp(y,y1<y2?y1:y2,y1>y2?y1:y2))<205 && this.distanceToSegment(x,y,x1,y1,x2,y2)<195)
+    return routes.some(([x1,y1,x2,y2])=>this.distanceToSegment(x,y,x1,y1,x2,y2)<195)
   }
 
   distanceToSegment(px:number,py:number,x1:number,y1:number,x2:number,y2:number) {
@@ -627,6 +631,13 @@ class PossessionScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.togglePause()
     if (this.isPaused) return
     if(this.physics.world.isPaused)this.physics.resume()
+    if(this.isWalkable(this.player.x,this.player.y)){
+      this.lastWalkableX=this.player.x
+      this.lastWalkableY=this.player.y
+    }else{
+      this.player.setPosition(this.lastWalkableX,this.lastWalkableY).setVelocity(0)
+      this.player.body?.updateFromGameObject()
+    }
     if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) this.useMedicine()
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.dodgeUntil = time + 280
 
