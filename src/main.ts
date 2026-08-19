@@ -232,12 +232,7 @@ class PossessionScene extends Phaser.Scene {
     floorLight.setMask(pathMask)
     const g = this.add.graphics().setDepth(2)
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) {
-      const overlapsRoad=[
-        [0,0],[-70,0],[70,0],[0,-70],[0,70],
-        [-55,-55],[55,-55],[-55,55],[55,55]
-      ].some(([ox,oy])=>this.isWalkable(x+ox,y+oy))
-      if(overlapsRoad)continue
-      this.makeObstacle(x,y,158,158)
+      if(this.cellIntersectsWalkable(x,y,79))continue
       const jag=()=>Phaser.Math.Between(-16,16)
       const rock=[
         new Phaser.Math.Vector2(x-88+jag(),y-82+jag()),new Phaser.Math.Vector2(x+jag(),y-91+jag()),
@@ -252,6 +247,9 @@ class PossessionScene extends Phaser.Scene {
         g.lineBetween(x-54+jag(),y-22+jag(),x-5+jag(),y+8+jag())
         g.lineBetween(x-5+jag(),y+8+jag(),x+48+jag(),y-10+jag())
       }
+    }
+    for(let x=40;x<MAP_W;x+=80) for(let y=40;y<MAP_H;y+=80) {
+      if(!this.cellIntersectsWalkable(x,y,39))this.makeObstacle(x,y,78,78)
     }
     g.lineStyle(12,0xbb3d32,.65).strokeRect(5,5,MAP_W-10,MAP_H-10)
     this.decorateOperationMap(g)
@@ -283,6 +281,29 @@ class PossessionScene extends Phaser.Scene {
     const dx=x2-x1,dy=y2-y1
     const t=Phaser.Math.Clamp(((px-x1)*dx+(py-y1)*dy)/(dx*dx+dy*dy),0,1)
     return Phaser.Math.Distance.Between(px,py,x1+t*dx,y1+t*dy)
+  }
+
+  cellIntersectsWalkable(cx:number,cy:number,half:number) {
+    const left=cx-half,right=cx+half,top=cy-half,bottom=cy+half
+    const pointRectDistance=(px:number,py:number)=>Phaser.Math.Distance.Between(px,py,Phaser.Math.Clamp(px,left,right),Phaser.Math.Clamp(py,top,bottom))
+    const hubs=[[400,2780,235],[720,820,235],[2580,760,235],[2630,2440,235],[1550,1550,300]]
+    if(hubs.some(([x,y,r])=>pointRectDistance(x,y)<r))return true
+    const cross=(ax:number,ay:number,bx:number,by:number,cx2:number,cy2:number)=>(bx-ax)*(cy2-ay)-(by-ay)*(cx2-ax)
+    const intersects=(ax:number,ay:number,bx:number,by:number,cx2:number,cy2:number,dx:number,dy:number)=>{
+      const abC=cross(ax,ay,bx,by,cx2,cy2),abD=cross(ax,ay,bx,by,dx,dy)
+      const cdA=cross(cx2,cy2,dx,dy,ax,ay),cdB=cross(cx2,cy2,dx,dy,bx,by)
+      return abC*abD<=0&&cdA*cdB<=0
+    }
+    const routes=[[400,2780,720,2200],[720,2200,1550,1550],[1550,1550,720,820],[1550,1550,2580,760],[1550,1550,2630,2440]]
+    return routes.some(([x1,y1,x2,y2])=>{
+      if((x1>=left&&x1<=right&&y1>=top&&y1<=bottom)||(x2>=left&&x2<=right&&y2>=top&&y2<=bottom))return true
+      if(intersects(x1,y1,x2,y2,left,top,right,top)||intersects(x1,y1,x2,y2,right,top,right,bottom)||intersects(x1,y1,x2,y2,right,bottom,left,bottom)||intersects(x1,y1,x2,y2,left,bottom,left,top))return true
+      const cornerDistance=Math.min(
+        this.distanceToSegment(left,top,x1,y1,x2,y2),this.distanceToSegment(right,top,x1,y1,x2,y2),
+        this.distanceToSegment(right,bottom,x1,y1,x2,y2),this.distanceToSegment(left,bottom,x1,y1,x2,y2)
+      )
+      return Math.min(cornerDistance,pointRectDistance(x1,y1),pointRectDistance(x2,y2))<195
+    })
   }
 
   createMissionObjects() {
