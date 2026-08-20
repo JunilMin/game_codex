@@ -78,6 +78,7 @@ class PossessionScene extends Phaser.Scene {
   lastSafeX = 400
   lastSafeY = 2780
   nextMeleeSwing = 1
+  meleeAnimationId = 0
   missionPhase: MissionPhase = 'seals'
   sealsActivated = 0
   enemiesKilled = 0
@@ -933,16 +934,25 @@ class PossessionScene extends Phaser.Scene {
   }
 
   attack(x: number, y: number) {
-    if (this.time.now - this.lastAttack < 330/this.attackSpeedMultiplier()) return
+    const attackDuration=330/this.attackSpeedMultiplier()
+    if (this.time.now - this.lastAttack < attackDuration) return
     this.lastAttack = this.time.now
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, x, y)
     this.aimAngle = angle
     this.player.setFlipX(x < this.player.x)
-    this.playerActionUntil = this.time.now + 320
-    this.weaponActionUntil = this.time.now + 320
+    this.playerActionUntil = this.time.now + attackDuration
+    this.weaponActionUntil = this.time.now + attackDuration
     this.weaponActionStarted = this.time.now
     this.weaponActionType = this.melee
     this.player.play(this.guardianAnimation('slash'), true)
+    // 한 번의 피해 판정마다 4프레임 휘두르기 한 사이클을 정확히 끝낸다.
+    // 공격 속도가 빨라져도 판정만 앞서가거나 애니메이션이 중간에 덮이지 않는다.
+    const animationId=++this.meleeAnimationId
+    const baseSlashDuration=4/15*1000
+    this.player.anims.timeScale=baseSlashDuration/attackDuration
+    this.time.delayedCall(attackDuration,()=>{
+      if(animationId===this.meleeAnimationId)this.player.anims.timeScale=1
+    })
     const swingDirection=this.nextMeleeSwing
     this.nextMeleeSwing*=-1
     this.activeSwingDirection=swingDirection
