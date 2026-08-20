@@ -72,6 +72,9 @@ class PossessionScene extends Phaser.Scene {
   weaponVisual!: Phaser.GameObjects.Image
   aimAngle = -.7
   weaponActionUntil = 0
+  weaponActionStarted = 0
+  weaponActionType: 'idle'|'sword'|'spear'|'parry' = 'idle'
+  activeSwingDirection = 1
   lastSafeX = 400
   lastSafeY = 2780
   nextMeleeSwing = 1
@@ -205,6 +208,9 @@ class PossessionScene extends Phaser.Scene {
     this.bossActionUntil = 0
     this.aimAngle = -.7
     this.weaponActionUntil = 0
+    this.weaponActionStarted = 0
+    this.weaponActionType = 'idle'
+    this.activeSwingDirection = 1
     this.lastSafeX=400
     this.lastSafeY=2780
     this.nextMeleeSwing = 1
@@ -769,11 +775,45 @@ class PossessionScene extends Phaser.Scene {
     const heights: Record<Melee, number> = { sword: 210, spear: 270 }
     this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
     const side = this.player.flipX ? -1 : 1
-    const wx=this.player.x+38*side
-    const wy=this.player.y-30
-    this.weaponVisual.setOrigin(.06,.94).setPosition(wx,wy)
-      .setFlipX(false).setDepth(this.player.depth+1).setVisible(this.player.visible).setAlpha(.96)
-    if(time>=this.weaponActionUntil)this.weaponVisual.setAngle(this.player.flipX?-64:-4)
+    const active=time<this.weaponActionUntil
+    const progress=active?Phaser.Math.Clamp((time-this.weaponActionStarted)/Math.max(1,this.weaponActionUntil-this.weaponActionStarted),0,1):1
+    const aimDegrees=Phaser.Math.RadToDeg(this.aimAngle)
+    let handX=this.player.x+side*20
+    let handY=this.player.y-27
+    let weaponAngle=this.player.flipX?-64:-4
+
+    if(active&&this.weaponActionType==='sword'){
+      const halfSwing=Phaser.Math.DegToRad(this.meleeSwingDegrees()/2)
+      const windupEnd=.22,strikeEnd=.7
+      let swingProgress=0
+      if(progress<windupEnd)swingProgress=-.18+.18*Phaser.Math.Easing.Cubic.In(progress/windupEnd)
+      else if(progress<strikeEnd)swingProgress=Phaser.Math.Easing.Cubic.Out((progress-windupEnd)/(strikeEnd-windupEnd))
+      else swingProgress=1-.08*Phaser.Math.Easing.Sine.InOut((progress-strikeEnd)/(1-strikeEnd))
+      const bladeAngle=this.aimAngle+this.activeSwingDirection*(-halfSwing+halfSwing*2*swingProgress)
+      weaponAngle=Phaser.Math.RadToDeg(bladeAngle)+58
+      const reach=progress<windupEnd?-8:12*Math.sin(Math.PI*Phaser.Math.Clamp((progress-windupEnd)/(1-windupEnd),0,1))
+      handX+=Math.cos(this.aimAngle)*reach+Math.cos(bladeAngle)*4
+      handY+=Math.sin(this.aimAngle)*reach+Math.sin(bladeAngle)*4
+    }else if(active&&this.weaponActionType==='spear'){
+      const windupEnd=.28,thrustEnd=.64
+      let thrust=-22
+      if(progress<windupEnd)thrust=-8-14*Phaser.Math.Easing.Cubic.In(progress/windupEnd)
+      else if(progress<thrustEnd)thrust=-22+66*Phaser.Math.Easing.Cubic.Out((progress-windupEnd)/(thrustEnd-windupEnd))
+      else thrust=44*(1-Phaser.Math.Easing.Cubic.In((progress-thrustEnd)/(1-thrustEnd)))
+      const settle=Math.sin(progress*Math.PI)*this.activeSwingDirection*5
+      weaponAngle=aimDegrees+58+settle
+      handX+=Math.cos(this.aimAngle)*thrust
+      handY+=Math.sin(this.aimAngle)*thrust
+    }else if(active&&this.weaponActionType==='parry'){
+      const guardLift=Math.sin(progress*Math.PI)*8
+      handX+=Math.cos(this.aimAngle)*12
+      handY+=Math.sin(this.aimAngle)*12-guardLift
+      weaponAngle=aimDegrees+58-side*38
+    }
+
+    const weaponDepth=active&&Math.sin(this.aimAngle)<-.2?this.player.depth-1:this.player.depth+1
+    this.weaponVisual.setOrigin(.06,.94).setPosition(handX,handY).setAngle(weaponAngle)
+      .setFlipX(false).setDepth(weaponDepth).setVisible(this.player.visible).setAlpha(.96)
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -930,15 +970,14 @@ class PossessionScene extends Phaser.Scene {
     this.player.setFlipX(x < this.player.x)
     this.playerActionUntil = this.time.now + 320
     this.weaponActionUntil = this.time.now + 320
+    this.weaponActionStarted = this.time.now
+    this.weaponActionType = this.melee
     this.player.play('guardian-slash', true)
     const swingDirection=this.nextMeleeSwing
     this.nextMeleeSwing*=-1
+    this.activeSwingDirection=swingDirection
     const swingDegrees=this.meleeSwingDegrees()
     const halfSwing=Phaser.Math.DegToRad(swingDegrees/2)
-    const weaponStart=Phaser.Math.RadToDeg(angle-swingDirection*halfSwing)+58
-    const weaponEnd=Phaser.Math.RadToDeg(angle+swingDirection*halfSwing)+58
-    this.weaponVisual.setAngle(weaponStart)
-    this.tweens.add({ targets: this.weaponVisual, angle:weaponEnd, duration:265, ease:'Cubic.Out' })
     const range = this.melee === 'spear' ? 240 : 188
     const damage = (this.melee === 'spear' ? 28 : 24) * this.meleeLevel * this.powerMultiplier()
     const slash = this.add.graphics().setDepth(30)
@@ -1018,6 +1057,8 @@ class PossessionScene extends Phaser.Scene {
     this.parryUntil = now + 240
     this.playerActionUntil = this.time.now + 430
     this.weaponActionUntil = this.time.now + 430
+    this.weaponActionStarted = this.time.now
+    this.weaponActionType = 'parry'
     this.player.play('guardian-parry', true)
     const side=this.player.flipX?-1:1
     const guardX=this.player.x+side*46,guardY=this.player.y-38,verticalAngle=-32
