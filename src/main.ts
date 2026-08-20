@@ -110,8 +110,8 @@ class PossessionScene extends Phaser.Scene {
     this.load.spritesheet('awakenedAngelStatue', '/assets/awakened-angel-statue-attack-v1.png', { frameWidth: 543, frameHeight: 724 })
     this.load.spritesheet('guardianMotion', '/assets/guardian-motion-v3.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('guardianUnarmed', '/assets/guardian-unarmed-v2.png', { frameWidth: 400, frameHeight: 313 })
-    this.load.spritesheet('guardianSword', '/assets/guardian-sword-v2.png', { frameWidth: 400, frameHeight: 313 })
-    this.load.spritesheet('guardianSpear', '/assets/guardian-spear-v2.png', { frameWidth: 400, frameHeight: 313 })
+    this.load.spritesheet('guardianSword', '/assets/guardian-sword-v3.png', { frameWidth: 512, frameHeight: 320 })
+    this.load.spritesheet('guardianSpear', '/assets/guardian-spear-v3.png', { frameWidth: 512, frameHeight: 320 })
     this.load.spritesheet('demonMotion', '/assets/demon-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('bossMotion', '/assets/gatekeeper-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
     for (const name of ['sword', 'spear']) this.load.image(`weapon-${name}`, `/assets/weapon-${name}.png`)
@@ -128,8 +128,8 @@ class PossessionScene extends Phaser.Scene {
     this.enemies = this.physics.add.group()
     this.enemyShots = this.physics.add.group()
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H)
-    this.player = this.physics.add.sprite(400, 2780, 'guardianSword', 0).setDisplaySize(92, 92).setDepth(20).setCollideWorldBounds(true).setPushable(false).setTint(0xd0bbb5)
-    this.player.body!.setSize(105, 62).setOffset(148, 228)
+    this.player = this.physics.add.sprite(400, 2780, 'guardianSword', 0).setDisplaySize(160, 100).setDepth(20).setCollideWorldBounds(true).setPushable(false).setTint(0xd0bbb5)
+    this.player.body!.setSize(105, 62).setOffset(203, 235)
     this.player.play('guardian-sword-idle')
     this.playerShadow = this.add.ellipse(400, 2811, 42, 12, 0x000000, .38).setDepth(18)
     this.playerContactShadow=this.add.ellipse(400,2809,27,7,0x000000,.76).setDepth(19)
@@ -784,7 +784,7 @@ class PossessionScene extends Phaser.Scene {
     this.melee=melee
     if(!this.player)return
     const texture=melee==='sword'?'guardianSword':'guardianSpear'
-    this.player.setTexture(texture,0).setDisplaySize(92,92).play(this.guardianAnimation('idle'),true)
+    this.player.setTexture(texture,0).setDisplaySize(160,100).play(this.guardianAnimation('idle'),true)
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -1099,8 +1099,8 @@ class PossessionScene extends Phaser.Scene {
     this.possession = Math.min(100, this.possession + amount)
     this.cameras.main.shake(150, .008)
     this.tweens.killTweensOf(this.player)
-    this.player.setDisplaySize(92, 92).setTint(0xb92f3b)
-    this.time.delayedCall(180, () => { if (this.player.active) this.player.setTint(0xd0bbb5).setDisplaySize(92, 92) })
+    this.player.setDisplaySize(160, 100).setTint(0xb92f3b)
+    this.time.delayedCall(180, () => { if (this.player.active) this.player.setTint(0xd0bbb5).setDisplaySize(160, 100) })
     this.playerActionUntil = this.time.now + 240
     // 좌표 넉백 트윈이 경계 밖에서 중단되면 이동 판정 전체가 잠기는 문제가 있어
     // 실제 위치는 유지하고 짧은 시각적 반동만 적용한다.
