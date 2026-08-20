@@ -109,6 +109,8 @@ class PossessionScene extends Phaser.Scene {
     this.load.spritesheet('awakenedAngelStatue', '/assets/awakened-angel-statue-attack-v1.png', { frameWidth: 543, frameHeight: 724 })
     this.load.spritesheet('guardianMotion', '/assets/guardian-motion-v3.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('guardianUnarmed', '/assets/guardian-unarmed-v2.png', { frameWidth: 400, frameHeight: 313 })
+    this.load.spritesheet('guardianSword', '/assets/guardian-sword-v1.png', { frameWidth: 400, frameHeight: 313 })
+    this.load.spritesheet('guardianSpear', '/assets/guardian-spear-v1.png', { frameWidth: 400, frameHeight: 313 })
     this.load.spritesheet('demonMotion', '/assets/demon-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
     this.load.spritesheet('bossMotion', '/assets/gatekeeper-motion-v2.png', { frameWidth: 313, frameHeight: 313 })
     for (const name of ['sword', 'spear']) this.load.image(`weapon-${name}`, `/assets/weapon-${name}.png`)
@@ -125,9 +127,9 @@ class PossessionScene extends Phaser.Scene {
     this.enemies = this.physics.add.group()
     this.enemyShots = this.physics.add.group()
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H)
-    this.player = this.physics.add.sprite(400, 2780, 'guardianUnarmed', 0).setDisplaySize(92, 92).setDepth(20).setCollideWorldBounds(true).setPushable(false).setTint(0xd0bbb5)
+    this.player = this.physics.add.sprite(400, 2780, 'guardianSword', 0).setDisplaySize(92, 92).setDepth(20).setCollideWorldBounds(true).setPushable(false).setTint(0xd0bbb5)
     this.player.body!.setSize(105, 62).setOffset(148, 228)
-    this.player.play('guardian-idle')
+    this.player.play('guardian-sword-idle')
     this.playerShadow = this.add.ellipse(400, 2811, 42, 12, 0x000000, .38).setDepth(18)
     this.playerContactShadow=this.add.ellipse(400,2809,27,7,0x000000,.76).setDepth(19)
     this.weaponVisual = this.add.image(400, 2780, 'weapon-sword').setDepth(22).setVisible(false)
@@ -374,11 +376,13 @@ class PossessionScene extends Phaser.Scene {
   }
 
   createAnimations() {
-    if (this.anims.exists('guardian-idle')) return
-    this.anims.create({ key: 'guardian-idle', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 0, end: 3 }), frameRate: 4, repeat: -1 })
-    this.anims.create({ key: 'guardian-run', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 4, end: 7 }), frameRate: 11, repeat: -1 })
-    this.anims.create({ key: 'guardian-slash', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 8, end: 11 }), frameRate: 15, repeat: 0 })
-    this.anims.create({ key: 'guardian-parry', frames: this.anims.generateFrameNumbers('guardianUnarmed', { start: 12, end: 15 }), frameRate: 12, repeat: 0 })
+    if (this.anims.exists('guardian-sword-idle')) return
+    for(const [melee,texture] of [['sword','guardianSword'],['spear','guardianSpear']] as const){
+      this.anims.create({ key: `guardian-${melee}-idle`, frames: this.anims.generateFrameNumbers(texture, { start: 0, end: 3 }), frameRate: 4, repeat: -1 })
+      this.anims.create({ key: `guardian-${melee}-run`, frames: this.anims.generateFrameNumbers(texture, { start: 4, end: 7 }), frameRate: 11, repeat: -1 })
+      this.anims.create({ key: `guardian-${melee}-slash`, frames: this.anims.generateFrameNumbers(texture, { start: 8, end: 11 }), frameRate: 15, repeat: 0 })
+      this.anims.create({ key: `guardian-${melee}-parry`, frames: this.anims.generateFrameNumbers(texture, { start: 12, end: 15 }), frameRate: 12, repeat: 0 })
+    }
     this.anims.create({ key: 'demon-idle', frames: this.anims.generateFrameNumbers('demonMotion', { start: 0, end: 3 }), frameRate: 5, repeat: -1 })
     this.anims.create({ key: 'demon-run', frames: this.anims.generateFrameNumbers('demonMotion', { start: 4, end: 7 }), frameRate: 10, repeat: -1 })
     this.anims.create({ key: 'demon-attack', frames: this.anims.generateFrameNumbers('demonMotion', { start: 8, end: 11 }), frameRate: 13, repeat: 0 })
@@ -411,7 +415,7 @@ class PossessionScene extends Phaser.Scene {
     const state=this.add.text(640,260,'',{fontFamily:'Arial',fontSize:'18px',color:'#ffffff',align:'center'}).setOrigin(.5)
     const items:Phaser.GameObjects.GameObject[]=[bg,title,loadout,state]
     const button=(x:number,y:number,label:string,fn:()=>void)=>{const b=this.add.text(x,y,label,{fontFamily:'Arial',fontSize:'17px',color:'#fff',backgroundColor:'#402b30',padding:{x:18,y:12}}).setOrigin(.5).setScrollFactor(0).setInteractive({useHandCursor:true}).on('pointerdown',(_pointer:Phaser.Input.Pointer,_x:number,_y:number,event:Phaser.Types.Input.EventData)=>{event.stopPropagation();fn();refresh()});items.push(b);return b}
-    const swordButton=button(500,350,'검',()=>this.melee='sword');const spearButton=button(610,350,'창',()=>this.melee='spear')
+    const swordButton=button(500,350,'검',()=>this.equipMelee('sword'));const spearButton=button(610,350,'창',()=>this.equipMelee('spear'))
     button(755,325,'계속하기',()=>this.togglePause());(items[items.length-1] as Phaser.GameObjects.Text).setName('pauseContinue')
     button(755,385,'다시 시작',()=>this.scene.restart())
     const refresh=()=>{
@@ -444,8 +448,8 @@ class PossessionScene extends Phaser.Scene {
       buttons.push(t); return t
     }
     const meleeLabel=this.add.text(455,385,'근접 무기',{fontFamily:'Arial',fontSize:'16px',color:'#aa9891'}).setOrigin(.5)
-    const swordButton=button(580, 385, '검 선택', () => { this.melee = 'sword' })
-    const spearButton=button(700, 385, '창 선택', () => { this.melee = 'spear' })
+    const swordButton=button(580, 385, '검 선택', () => this.equipMelee('sword'))
+    const spearButton=button(700, 385, '창 선택', () => this.equipMelee('spear'))
     const start = button(640, 545, '지옥문으로 진입', () => { this.preparePanel.setVisible(false); this.gameStarted = true; this.startWave() }).setOrigin(.5)
     const refresh = () => {
       info.setText(`선택 무기  ${this.melee.toUpperCase()}\n신성한 약 [Q]  3개 지급`)
@@ -463,7 +467,7 @@ class PossessionScene extends Phaser.Scene {
     const chapter=this.add.text(640,165,'OPERATION GUIDE',{fontFamily:'Arial',fontSize:'15px',color:'#a95a5e',letterSpacing:4}).setOrigin(.5)
     const title=this.add.text(640,220,'조작 방법',{fontFamily:'Georgia',fontSize:'35px',color:'#eee1d2'}).setOrigin(.5)
     const left=this.add.text(455,315,'W A S D\n좌클릭\n우클릭\nSPACE',{fontFamily:'Arial',fontSize:'18px',fontStyle:'bold',color:'#f0ded1',align:'right',lineSpacing:15}).setOrigin(1,.5)
-    const right=this.add.text(485,315,'이동\n마력 무기 공격\n악성 중화(패링)\n회피/대시',{fontFamily:'Arial',fontSize:'18px',color:'#bdaea5',lineSpacing:15}).setOrigin(0,.5)
+    const right=this.add.text(485,315,'이동\n무기 공격\n악성 중화(패링)\n회피/대시',{fontFamily:'Arial',fontSize:'18px',color:'#bdaea5',lineSpacing:15}).setOrigin(0,.5)
     const left2=this.add.text(750,315,'E\nQ\nESC',{fontFamily:'Arial',fontSize:'18px',fontStyle:'bold',color:'#f0ded1',align:'right',lineSpacing:15}).setOrigin(1,.5)
     const right2=this.add.text(780,315,'천사상과 상호 작용\n신성한 약 사용\n일시정지·무기 변경',{fontFamily:'Arial',fontSize:'18px',color:'#bdaea5',lineSpacing:15}).setOrigin(0,.5)
     const warning=this.add.text(640,455,'검  공속 x1.5 · 범위 x1.17 · 빙의 15%마다 공속 +0.2 / 범위 +0.06\n창  공속 x1.0 · 범위 x1.5 · 빙의 15%마다 공속 +0.1 / 범위 +0.11\n빙의율 100%가 되면 육체를 빼앗기고 사망',{fontFamily:'Arial',fontSize:'13px',color:'#d88d8d',backgroundColor:'#341a20aa',padding:{x:16,y:8},align:'center',lineSpacing:4}).setOrigin(.5)
@@ -547,7 +551,7 @@ class PossessionScene extends Phaser.Scene {
   }
 
   startWave() {
-    this.weaponVisual.setVisible(true)
+    this.weaponVisual.setVisible(false)
     this.cameras.main.startFollow(this.player, true, .09, .09)
     this.wave++
     this.waveStarted = this.time.now
@@ -700,16 +704,16 @@ class PossessionScene extends Phaser.Scene {
   updatePlayerAnimation(time: number, velocity: Phaser.Math.Vector2) {
     if (time < this.dodgeUntil && time - this.lastDodgeAfterimage > 55) {
       this.lastDodgeAfterimage = time
-      const ghost = this.add.image(this.player.x, this.player.y, 'guardianUnarmed', this.player.frame.name)
+      const ghost = this.add.image(this.player.x, this.player.y, this.player.texture.key, this.player.frame.name)
         .setDisplaySize(this.player.displayWidth, this.player.displayHeight).setAlpha(.3).setTint(0xaad8db).setDepth(this.player.depth - 1)
       this.tweens.add({ targets: ghost, alpha: 0, scaleX: ghost.scaleX * .88, scaleY: ghost.scaleY * .88, duration: 220, onComplete: () => ghost.destroy() })
     }
     if (time < this.playerActionUntil) return
     if (velocity.lengthSq() > 10) {
-      this.player.play('guardian-run', true)
+      this.player.play(this.guardianAnimation('run'), true)
       this.player.setFlipX(velocity.x < 0)
     } else {
-      this.player.play('guardian-idle', true)
+      this.player.play(this.guardianAnimation('idle'), true)
     }
   }
 
@@ -717,10 +721,10 @@ class PossessionScene extends Phaser.Scene {
     this.player.setDepth(20 + this.player.y / 30)
     const playerAnim=this.player.anims.currentAnim?.key??''
     const playerFrame=this.player.anims.currentFrame?.index??0
-    const playerStride=playerAnim==='guardian-run'?Math.sin(playerFrame*Math.PI*.5)*3:0
-    const playerAction=playerAnim==='guardian-slash'||playerAnim==='guardian-parry'
+    const playerStride=playerAnim.endsWith('-run')?Math.sin(playerFrame*Math.PI*.5)*3:0
+    const playerAction=playerAnim.endsWith('-slash')||playerAnim.endsWith('-parry')
     this.playerShadow.setPosition(this.player.x+playerStride,this.player.y+(playerAction?27:31)).setDepth(this.player.depth-1)
-      .setDisplaySize(playerAction?47:42+(playerAnim==='guardian-run'?Math.abs(playerStride)*1.4:0),playerAction?10:12)
+      .setDisplaySize(playerAction?47:42+(playerAnim.endsWith('-run')?Math.abs(playerStride)*1.4:0),playerAction?10:12)
       .setAlpha(playerAction ? .34 : .38)
     this.playerContactShadow.setPosition(this.player.x+playerStride*.7,this.player.y+(playerAction?25:29)).setDepth(this.player.depth-.5)
       .setDisplaySize(playerAction?32:27,playerAction?6:7).setAlpha(this.player.alpha*.76)
@@ -769,60 +773,17 @@ class PossessionScene extends Phaser.Scene {
   }
 
   updateWeaponVisual(time: number) {
-    const name = this.melee
-    const key = `weapon-${name}`
-    if (this.weaponVisual.texture.key !== key) this.weaponVisual.setTexture(key)
-    const heights: Record<Melee, number> = { sword: 210, spear: 270 }
-    const gripOrigins: Record<Melee, {x:number,y:number,angle:number}> = {
-      sword:{x:.255,y:.805,angle:66},
-      spear:{x:.49,y:.59,angle:70}
-    }
-    const grip=gripOrigins[name]
-    this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
-    const side = this.player.flipX ? -1 : 1
-    const actionFrame=(this.player.anims.currentFrame?.index??0)%4
-    const attackHandX=[24,29,33,31][actionFrame]
-    const attackHandY=[-10,-14,-16,-14][actionFrame]
-    const active=time<this.weaponActionUntil
-    const progress=active?Phaser.Math.Clamp((time-this.weaponActionStarted)/Math.max(1,this.weaponActionUntil-this.weaponActionStarted),0,1):1
-    const aimDegrees=Phaser.Math.RadToDeg(this.aimAngle)
-    const usingBothHands=active&&(this.weaponActionType==='sword'||this.weaponActionType==='spear'||this.weaponActionType==='parry')
-    let handX=this.player.x+side*(usingBothHands?attackHandX:14)
-    let handY=this.player.y+(usingBothHands?attackHandY:6)
-    let weaponAngle=this.player.flipX?-48:0
+    void time
+    this.weaponVisual.setVisible(false)
+  }
 
-    if(active&&this.weaponActionType==='sword'){
-      const halfSwing=Phaser.Math.DegToRad(this.meleeSwingDegrees()/2)
-      const windupEnd=.22,strikeEnd=.7
-      let swingProgress=0
-      if(progress<windupEnd)swingProgress=-.18+.18*Phaser.Math.Easing.Cubic.In(progress/windupEnd)
-      else if(progress<strikeEnd)swingProgress=Phaser.Math.Easing.Cubic.Out((progress-windupEnd)/(strikeEnd-windupEnd))
-      else swingProgress=1-.08*Phaser.Math.Easing.Sine.InOut((progress-strikeEnd)/(1-strikeEnd))
-      const bladeAngle=this.aimAngle+this.activeSwingDirection*(-halfSwing+halfSwing*2*swingProgress)
-      weaponAngle=Phaser.Math.RadToDeg(bladeAngle)+grip.angle
-      const reach=progress<windupEnd?-8:12*Math.sin(Math.PI*Phaser.Math.Clamp((progress-windupEnd)/(1-windupEnd),0,1))
-      handX+=Math.cos(this.aimAngle)*reach+Math.cos(bladeAngle)*4
-      handY+=Math.sin(this.aimAngle)*reach+Math.sin(bladeAngle)*4
-    }else if(active&&this.weaponActionType==='spear'){
-      const windupEnd=.28,thrustEnd=.64
-      let thrust=-22
-      if(progress<windupEnd)thrust=-8-14*Phaser.Math.Easing.Cubic.In(progress/windupEnd)
-      else if(progress<thrustEnd)thrust=-22+66*Phaser.Math.Easing.Cubic.Out((progress-windupEnd)/(thrustEnd-windupEnd))
-      else thrust=44*(1-Phaser.Math.Easing.Cubic.In((progress-thrustEnd)/(1-thrustEnd)))
-      const settle=Math.sin(progress*Math.PI)*this.activeSwingDirection*5
-      weaponAngle=aimDegrees+grip.angle+settle
-      handX+=Math.cos(this.aimAngle)*thrust
-      handY+=Math.sin(this.aimAngle)*thrust
-    }else if(active&&this.weaponActionType==='parry'){
-      const guardLift=Math.sin(progress*Math.PI)*8
-      handX+=Math.cos(this.aimAngle)*12
-      handY+=Math.sin(this.aimAngle)*12-guardLift
-      weaponAngle=aimDegrees+grip.angle-side*38
-    }
+  guardianAnimation(action:'idle'|'run'|'slash'|'parry'){return `guardian-${this.melee}-${action}`}
 
-    const weaponDepth=active&&Math.sin(this.aimAngle)<-.2?this.player.depth-1:this.player.depth+1
-    this.weaponVisual.setOrigin(grip.x,grip.y).setPosition(handX,handY).setAngle(weaponAngle)
-      .setFlipX(false).setDepth(weaponDepth).setVisible(this.player.visible).setAlpha(.96)
+  equipMelee(melee:Melee){
+    this.melee=melee
+    if(!this.player)return
+    const texture=melee==='sword'?'guardianSword':'guardianSpear'
+    this.player.setTexture(texture,0).setDisplaySize(92,92).play(this.guardianAnimation('idle'),true)
   }
 
   powerMultiplier() { return this.possession < 20 ? 1 : this.possession < 50 ? 1.15 : this.possession < 80 ? 1.4 : Math.max(.55, 1.25 - (this.possession - 80) * .035) }
@@ -981,7 +942,7 @@ class PossessionScene extends Phaser.Scene {
     this.weaponActionUntil = this.time.now + 320
     this.weaponActionStarted = this.time.now
     this.weaponActionType = this.melee
-    this.player.play('guardian-slash', true)
+    this.player.play(this.guardianAnimation('slash'), true)
     const swingDirection=this.nextMeleeSwing
     this.nextMeleeSwing*=-1
     this.activeSwingDirection=swingDirection
@@ -1068,13 +1029,7 @@ class PossessionScene extends Phaser.Scene {
     this.weaponActionUntil = this.time.now + 430
     this.weaponActionStarted = this.time.now
     this.weaponActionType = 'parry'
-    this.player.play('guardian-parry', true)
-    const side=this.player.flipX?-1:1
-    const guardX=this.player.x+side*24,guardY=this.player.y-12,verticalAngle=Phaser.Math.RadToDeg(this.aimAngle)+(this.melee==='sword'?66:70)-side*38
-    const guardOrigin=this.melee==='sword'?{x:.255,y:.805}:{x:.49,y:.59}
-    this.weaponVisual.setPosition(guardX,guardY).setOrigin(guardOrigin.x,guardOrigin.y).setAngle(verticalAngle)
-    const guard=this.add.image(guardX,guardY,`weapon-${this.melee}`).setOrigin(guardOrigin.x,guardOrigin.y).setDisplaySize(this.weaponVisual.displayWidth,this.weaponVisual.displayHeight).setAngle(verticalAngle).setTint(0xfff3c2).setDepth(this.player.depth+8)
-    this.tweens.add({targets:guard,alpha:0,scaleX:1.08,scaleY:1.08,duration:330,onComplete:()=>guard.destroy()})
+    this.player.play(this.guardianAnimation('parry'), true)
     this.player.setTint(0xe8cf8b)
     this.time.delayedCall(250, () => this.player.setTint(0xd0bbb5))
     const boss=this.activeBosses().find(actor=>{
@@ -1291,7 +1246,7 @@ class PossessionScene extends Phaser.Scene {
     if(this.exitSequenceStarted)return
     this.exitSequenceStarted=true
     this.gameStarted=false
-    this.player.setVelocity(0).play('guardian-run',true)
+    this.player.setVelocity(0).play(this.guardianAnimation('run'),true)
     this.weaponVisual.setVisible(false)
     this.physics.pause()
     this.extraction.setVisible(false)
