@@ -773,14 +773,23 @@ class PossessionScene extends Phaser.Scene {
     const key = `weapon-${name}`
     if (this.weaponVisual.texture.key !== key) this.weaponVisual.setTexture(key)
     const heights: Record<Melee, number> = { sword: 210, spear: 270 }
+    const gripOrigins: Record<Melee, {x:number,y:number,angle:number}> = {
+      sword:{x:.255,y:.805,angle:66},
+      spear:{x:.49,y:.59,angle:70}
+    }
+    const grip=gripOrigins[name]
     this.weaponVisual.setDisplaySize(this.weaponVisual.width / this.weaponVisual.height * heights[name], heights[name])
     const side = this.player.flipX ? -1 : 1
+    const actionFrame=(this.player.anims.currentFrame?.index??0)%4
+    const attackHandX=[24,29,33,31][actionFrame]
+    const attackHandY=[-10,-14,-16,-14][actionFrame]
     const active=time<this.weaponActionUntil
     const progress=active?Phaser.Math.Clamp((time-this.weaponActionStarted)/Math.max(1,this.weaponActionUntil-this.weaponActionStarted),0,1):1
     const aimDegrees=Phaser.Math.RadToDeg(this.aimAngle)
-    let handX=this.player.x+side*20
-    let handY=this.player.y-27
-    let weaponAngle=this.player.flipX?-64:-4
+    const usingBothHands=active&&(this.weaponActionType==='sword'||this.weaponActionType==='spear'||this.weaponActionType==='parry')
+    let handX=this.player.x+side*(usingBothHands?attackHandX:14)
+    let handY=this.player.y+(usingBothHands?attackHandY:6)
+    let weaponAngle=this.player.flipX?-48:0
 
     if(active&&this.weaponActionType==='sword'){
       const halfSwing=Phaser.Math.DegToRad(this.meleeSwingDegrees()/2)
@@ -790,7 +799,7 @@ class PossessionScene extends Phaser.Scene {
       else if(progress<strikeEnd)swingProgress=Phaser.Math.Easing.Cubic.Out((progress-windupEnd)/(strikeEnd-windupEnd))
       else swingProgress=1-.08*Phaser.Math.Easing.Sine.InOut((progress-strikeEnd)/(1-strikeEnd))
       const bladeAngle=this.aimAngle+this.activeSwingDirection*(-halfSwing+halfSwing*2*swingProgress)
-      weaponAngle=Phaser.Math.RadToDeg(bladeAngle)+58
+      weaponAngle=Phaser.Math.RadToDeg(bladeAngle)+grip.angle
       const reach=progress<windupEnd?-8:12*Math.sin(Math.PI*Phaser.Math.Clamp((progress-windupEnd)/(1-windupEnd),0,1))
       handX+=Math.cos(this.aimAngle)*reach+Math.cos(bladeAngle)*4
       handY+=Math.sin(this.aimAngle)*reach+Math.sin(bladeAngle)*4
@@ -801,18 +810,18 @@ class PossessionScene extends Phaser.Scene {
       else if(progress<thrustEnd)thrust=-22+66*Phaser.Math.Easing.Cubic.Out((progress-windupEnd)/(thrustEnd-windupEnd))
       else thrust=44*(1-Phaser.Math.Easing.Cubic.In((progress-thrustEnd)/(1-thrustEnd)))
       const settle=Math.sin(progress*Math.PI)*this.activeSwingDirection*5
-      weaponAngle=aimDegrees+58+settle
+      weaponAngle=aimDegrees+grip.angle+settle
       handX+=Math.cos(this.aimAngle)*thrust
       handY+=Math.sin(this.aimAngle)*thrust
     }else if(active&&this.weaponActionType==='parry'){
       const guardLift=Math.sin(progress*Math.PI)*8
       handX+=Math.cos(this.aimAngle)*12
       handY+=Math.sin(this.aimAngle)*12-guardLift
-      weaponAngle=aimDegrees+58-side*38
+      weaponAngle=aimDegrees+grip.angle-side*38
     }
 
     const weaponDepth=active&&Math.sin(this.aimAngle)<-.2?this.player.depth-1:this.player.depth+1
-    this.weaponVisual.setOrigin(.06,.94).setPosition(handX,handY).setAngle(weaponAngle)
+    this.weaponVisual.setOrigin(grip.x,grip.y).setPosition(handX,handY).setAngle(weaponAngle)
       .setFlipX(false).setDepth(weaponDepth).setVisible(this.player.visible).setAlpha(.96)
   }
 
@@ -1061,9 +1070,10 @@ class PossessionScene extends Phaser.Scene {
     this.weaponActionType = 'parry'
     this.player.play('guardian-parry', true)
     const side=this.player.flipX?-1:1
-    const guardX=this.player.x+side*46,guardY=this.player.y-38,verticalAngle=-32
-    this.weaponVisual.setPosition(guardX,guardY).setOrigin(.06,.94).setAngle(verticalAngle)
-    const guard=this.add.image(guardX,guardY,`weapon-${this.melee}`).setOrigin(.06,.94).setDisplaySize(this.weaponVisual.displayWidth,this.weaponVisual.displayHeight).setAngle(verticalAngle).setTint(0xfff3c2).setDepth(this.player.depth+8)
+    const guardX=this.player.x+side*24,guardY=this.player.y-12,verticalAngle=Phaser.Math.RadToDeg(this.aimAngle)+(this.melee==='sword'?66:70)-side*38
+    const guardOrigin=this.melee==='sword'?{x:.255,y:.805}:{x:.49,y:.59}
+    this.weaponVisual.setPosition(guardX,guardY).setOrigin(guardOrigin.x,guardOrigin.y).setAngle(verticalAngle)
+    const guard=this.add.image(guardX,guardY,`weapon-${this.melee}`).setOrigin(guardOrigin.x,guardOrigin.y).setDisplaySize(this.weaponVisual.displayWidth,this.weaponVisual.displayHeight).setAngle(verticalAngle).setTint(0xfff3c2).setDepth(this.player.depth+8)
     this.tweens.add({targets:guard,alpha:0,scaleX:1.08,scaleY:1.08,duration:330,onComplete:()=>guard.destroy()})
     this.player.setTint(0xe8cf8b)
     this.time.delayedCall(250, () => this.player.setTint(0xd0bbb5))
