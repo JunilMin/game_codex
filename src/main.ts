@@ -1222,6 +1222,7 @@ class PossessionScene extends Phaser.Scene {
   }
 
   redrawHud() {
+    this.instruction.setVisible(this.instruction.text.trim().length > 0)
     const color = this.possession < 50 ? 0xd8cdbf : this.possession < 80 ? 0xe44a43 : 0x7c1b32
     this.possessionBar.clear().fillStyle(0x17151a, .95).fillRoundedRect(30, 48, 360, 22, 5).fillStyle(color).fillRoundedRect(34, 52, 352 * this.possession / 100, 14, 4)
     this.statusText.setText(`빙의율 ${Math.round(this.possession)}%   공격 속도 x${this.attackSpeedMultiplier().toFixed(1)}   신성한 약 ${this.medicine}/3   무기 ${this.melee.toUpperCase()}${this.bossActive?`   공포 ${Math.round(this.purification)}%`:''}`)
