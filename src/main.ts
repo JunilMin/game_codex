@@ -15,7 +15,7 @@ const W = 1280
 const H = 720
 const MAP_W = 3200
 const MAP_H = 3200
-const WALKABLE_RADIUS = 245
+const WALKABLE_RADIUS = 285
 const WALKABLE_ROUTES: [number,number,number,number][] = [
   [400,2780,720,2200], [720,2200,1550,1550], [1550,1550,720,820],
   [1550,1550,2580,760], [1550,1550,2630,2440]
@@ -973,7 +973,7 @@ class PossessionScene extends Phaser.Scene {
       this.time.delayedCall(235,()=>{
         if(!statue.active)return
         targets.forEach(target=>{if(target.active){this.statueLightning(target,false);this.damageEnemy(target,36)}})
-        bossTargets.forEach(target=>{if(target.active&&!this.executable){this.statueLightning(target,true);this.damageBoss(36)}})
+        bossTargets.forEach(target=>{if(target.active&&!this.executable){this.statueLightning(target,true);this.damageBoss(18)}})
       })
       this.time.delayedCall(510,()=>{if(statue.active)angel.setFrame(0).setFlipX(false).setAngle(0)})
     }
@@ -1114,8 +1114,8 @@ class PossessionScene extends Phaser.Scene {
     // 짧은 직선 대신 크기와 궤적이 다른 방울을 흩뿌려 유기적인 비산감을 만든다.
     for(let i=0;i<30;i++) {
       const a=base+Phaser.Math.FloatBetween(-.82,.82)
-      const distance=Phaser.Math.Between(72,285)
-      const lateral=Phaser.Math.Between(-52,52)
+      const distance=Phaser.Math.Between(94,371)
+      const lateral=Phaser.Math.Between(-68,68)
       const size=Phaser.Math.Between(3,8)
       const drop=this.add.ellipse(
         x+Phaser.Math.Between(-12,12),y+Phaser.Math.Between(-12,12),
