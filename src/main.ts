@@ -87,8 +87,6 @@ class PossessionScene extends Phaser.Scene {
   pausePanel!: Phaser.GameObjects.Container
   sealNodes: Phaser.GameObjects.Container[] = []
   directionalAngels: Phaser.GameObjects.Image[] = []
-  directionalMarkers: Phaser.GameObjects.Triangle[] = []
-  angelGuidance!: Phaser.GameObjects.Graphics
   awakenedStatues: Phaser.GameObjects.Container[] = []
   extraction!: Phaser.GameObjects.Container
   hellGate!: Phaser.GameObjects.Container
@@ -227,7 +225,6 @@ class PossessionScene extends Phaser.Scene {
     this.isPaused = false
     this.sealNodes = []
     this.directionalAngels = []
-    this.directionalMarkers = []
     this.awakenedStatues = []
     this.bossContactShadows=[]
     this.interactProgress = 0
@@ -246,10 +243,9 @@ class PossessionScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#090a0d')
     this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellWall').setTileScale(.42).setDepth(0).setTint(0x080609)
     this.add.rectangle(MAP_W/2,MAP_H/2,MAP_W,MAP_H,0x020204,.38).setDepth(.2)
-    const pathMaskShape=this.make.graphics({x:0,y:0})
-    pathMaskShape.lineStyle(WALKABLE_RADIUS*2,0xffffff,1)
-    for(const [x1,y1,x2,y2] of WALKABLE_ROUTES) pathMaskShape.lineBetween(x1,y1,x2,y2)
-    for(const [x,y,r] of WALKABLE_HUBS) pathMaskShape.fillStyle(0xffffff).fillCircle(x,y,r)
+    // 이동 판정과 별도의 WebGL 마스크를 사용하면 밝은 길과 실제 통행 영역이 어긋난다.
+    // 바닥 전체는 어둡게 깔고, isWalkable과 동일한 선분/반경으로 밝은 길을 직접 그린다.
+    this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellFloor').setTileScale(.5).setDepth(.4).setTint(0x685653).setAlpha(.72)
 
     const pathBorder=this.add.graphics().setDepth(.8)
     pathBorder.lineStyle(WALKABLE_RADIUS*2+44,0x040306,.99)
@@ -261,17 +257,11 @@ class PossessionScene extends Phaser.Scene {
     pathBorder.fillStyle(0x7c3437,.76)
     for(const [x,y,r] of WALKABLE_HUBS) pathBorder.fillCircle(x,y,r+8)
 
-    const pathMask=pathMaskShape.createGeometryMask()
-    const floor=this.add.tileSprite(MAP_W/2,MAP_H/2,MAP_W,MAP_H,'hellFloor').setTileScale(.5).setDepth(1).setTint(0xf1d8c9)
-    floor.setMask(pathMask)
-    const floorLight=this.add.rectangle(MAP_W/2,MAP_H/2,MAP_W,MAP_H,0xffe2cf,.1).setDepth(1.2)
-    floorLight.setMask(pathMask)
-    // 셀 단위 벽 장식이 길에 일부만 닿을 때 생기던 밝은 사각 포켓을 제거한다.
-    // 이동 마스크의 정확한 반전 영역 전체를 어둡게 덮어 밝은 곳=이동 가능을 보장한다.
-    const blockedLayer=this.add.renderTexture(0,0,MAP_W,MAP_H).setOrigin(0).setDepth(1.4)
-    const darkness=this.make.graphics({x:0,y:0}).fillStyle(0x000106,.76).fillRect(0,0,MAP_W,MAP_H)
-    blockedLayer.draw(darkness).erase(pathMaskShape)
-    darkness.destroy()
+    const pathSurface=this.add.graphics().setDepth(1.2)
+    pathSurface.lineStyle(WALKABLE_RADIUS*2,0xd9b8a4,.3)
+    for(const [x1,y1,x2,y2] of WALKABLE_ROUTES) pathSurface.lineBetween(x1,y1,x2,y2)
+    pathSurface.fillStyle(0xd9b8a4,.3)
+    for(const [x,y,r] of WALKABLE_HUBS) pathSurface.fillCircle(x,y,r)
     const g = this.add.graphics().setDepth(2)
     for(let x=80;x<MAP_W;x+=160) for(let y=80;y<MAP_H;y+=160) {
       if(this.cellIntersectsWalkable(x,y,79))continue
@@ -299,16 +289,12 @@ class PossessionScene extends Phaser.Scene {
 
   decorateOperationMap(g:Phaser.GameObjects.Graphics) {
     const guides=[[535,2480,32],[850,2070,48],[1130,1870,48],[1280,1370,-42],[1810,1320,54],[2130,1110,54],[2080,1980,132],[2360,2210,132],[950,1080,-42],[2300,820,78]]
-    this.angelGuidance=this.add.graphics().setDepth(5.5)
     for(const [x,y,_angle] of guides) {
       const glow=this.add.circle(x,y,58,0xb9fff0,.08).setDepth(4)
       const statue=this.add.image(x,y,'angelDirection').setDisplaySize(74,112).setAngle(0).setTint(0xb9aaa0).setDepth(5)
-      const marker=this.add.triangle(x,y-72,0,14,11,-7,-11,-7,0xbfffee,.9).setDepth(6).setVisible(false)
       this.directionalAngels.push(statue)
-      this.directionalMarkers.push(marker)
       this.tweens.add({targets:glow,scale:1.35,alpha:.2,duration:Phaser.Math.Between(850,1250),yoyo:true,repeat:-1})
       this.tweens.add({targets:statue,alpha:.72,duration:Phaser.Math.Between(1200,1700),yoyo:true,repeat:-1})
-      this.tweens.add({targets:marker,alpha:.35,duration:520,yoyo:true,repeat:-1})
     }
     const debris=[[610,2380],[980,1980],[1230,1690],[980,1120],[1880,1260],[2230,930],[2070,1920],[2410,2250],[2810,2260]]
     for(const [x,y] of debris) {
@@ -380,22 +366,14 @@ class PossessionScene extends Phaser.Scene {
 
   updateAngelGuidance() {
     const target=this.sealNodes.find(node=>!node.getData('activated'))
-    this.angelGuidance.clear()
-    this.directionalAngels.forEach((statue,index)=>{
-      const marker=this.directionalMarkers[index]
+    this.directionalAngels.forEach(statue=>{
       if(!target){
         statue.setAngle(0).setTint(0x776f72)
-        marker.setVisible(false)
         return
       }
       const angle=Phaser.Math.Angle.Between(statue.x,statue.y,target.x,target.y)
-      statue.setAngle(0).setTint(0xc8e5df)
-      const startX=statue.x+Math.cos(angle)*32,startY=statue.y+Math.sin(angle)*32
-      const endX=statue.x+Math.cos(angle)*92,endY=statue.y+Math.sin(angle)*92
-      this.angelGuidance.lineStyle(10,0x8ffff0,.08).lineBetween(startX,startY,endX,endY)
-        .lineStyle(3,0xc9fff5,.72).lineBetween(startX,startY,endX,endY)
-      marker.setPosition(endX,endY)
-        .setRotation(angle+Math.PI/2).setVisible(true)
+      // 원본 석상의 손가락은 위쪽을 향하므로 목표 각도에 90도를 더한다.
+      statue.setAngle(Phaser.Math.RadToDeg(angle)+90).setTint(0xc8e5df)
     })
   }
 
