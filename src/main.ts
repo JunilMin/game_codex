@@ -876,7 +876,7 @@ class PossessionScene extends Phaser.Scene {
   spawnBoss() {
     this.bossActive = true
     this.bossHp = 300; this.purification = 0; this.executable = false
-    this.showNarrativeModal('울부짖는 천사','문지기를 나에게 데려오라','내 성광은 악마의 육체를 태울 수 있다.\n문지기의 공격을 견디며 이곳까지 유인하라.','닫기',()=>{
+    this.showNarrativeModal('울부짖는 천사','문지기를 나에게 데려와라','내 성광은 악마의 육체를 태울 수 있다.\n문지기의 공격을 견디며 이곳까지 유인하라.','닫기',()=>{
       this.boss.enableBody(true,1600,1500,true,true).setAlpha(0).setAngle(0).play('boss-idle')
       this.boss.setData('nextAttack',this.time.now+1300).setData('attackCount',0).setData('actionUntil',0)
       this.tweens.add({targets:this.boss,alpha:1,y:1550,duration:700,ease:'Back.Out'})
@@ -1207,7 +1207,7 @@ class PossessionScene extends Phaser.Scene {
       this.physics.add.collider(this.bossClone,this.walls)
       this.physics.add.collider(this.player,this.bossClone)
       this.cameras.main.shake(500,.014)
-      this.showNarrativeModal('울부짖는 천사','분노가 문지기를 둘로 갈랐다','두 육체 모두를 나에게 데려오라.\n내 번개로 문지기의 분노를 불태우겠다.','닫기',()=>this.instruction.setText('두 문지기를 각성한 천사상으로 유인하십시오'))
+      this.showNarrativeModal('울부짖는 천사','분노가 문지기를 둘로 갈랐다','두 육체 모두를 나에게 데려와라.\n내 번개로 문지기의 분노를 불태우겠다.','닫기',()=>this.instruction.setText('두 문지기를 각성한 천사상으로 유인하십시오'))
       return
     }
     this.bossActive=false
