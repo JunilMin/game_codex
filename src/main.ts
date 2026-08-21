@@ -86,6 +86,9 @@ class PossessionScene extends Phaser.Scene {
   isPaused = false
   pausePanel!: Phaser.GameObjects.Container
   sealNodes: Phaser.GameObjects.Container[] = []
+  directionalAngels: Phaser.GameObjects.Image[] = []
+  directionalMarkers: Phaser.GameObjects.Triangle[] = []
+  angelGuidance!: Phaser.GameObjects.Graphics
   awakenedStatues: Phaser.GameObjects.Container[] = []
   extraction!: Phaser.GameObjects.Container
   hellGate!: Phaser.GameObjects.Container
@@ -223,6 +226,8 @@ class PossessionScene extends Phaser.Scene {
     this.isChannelingSeal = false
     this.isPaused = false
     this.sealNodes = []
+    this.directionalAngels = []
+    this.directionalMarkers = []
     this.awakenedStatues = []
     this.bossContactShadows=[]
     this.interactProgress = 0
@@ -294,11 +299,16 @@ class PossessionScene extends Phaser.Scene {
 
   decorateOperationMap(g:Phaser.GameObjects.Graphics) {
     const guides=[[535,2480,32],[850,2070,48],[1130,1870,48],[1280,1370,-42],[1810,1320,54],[2130,1110,54],[2080,1980,132],[2360,2210,132],[950,1080,-42],[2300,820,78]]
+    this.angelGuidance=this.add.graphics().setDepth(5.5)
     for(const [x,y,_angle] of guides) {
       const glow=this.add.circle(x,y,58,0xb9fff0,.08).setDepth(4)
       const statue=this.add.image(x,y,'angelDirection').setDisplaySize(74,112).setAngle(0).setTint(0xb9aaa0).setDepth(5)
+      const marker=this.add.triangle(x,y-72,0,14,11,-7,-11,-7,0xbfffee,.9).setDepth(6).setVisible(false)
+      this.directionalAngels.push(statue)
+      this.directionalMarkers.push(marker)
       this.tweens.add({targets:glow,scale:1.35,alpha:.2,duration:Phaser.Math.Between(850,1250),yoyo:true,repeat:-1})
       this.tweens.add({targets:statue,alpha:.72,duration:Phaser.Math.Between(1200,1700),yoyo:true,repeat:-1})
+      this.tweens.add({targets:marker,alpha:.35,duration:520,yoyo:true,repeat:-1})
     }
     const debris=[[610,2380],[980,1980],[1230,1690],[980,1120],[1880,1260],[2230,930],[2070,1920],[2410,2250],[2810,2260]]
     for(const [x,y] of debris) {
@@ -360,11 +370,33 @@ class PossessionScene extends Phaser.Scene {
       this.tweens.add({targets:waveB,scale:1.5,alpha:0,duration:1350,delay:350,repeat:-1})
       return node
     })
+    this.updateAngelGuidance()
     this.createHellGate()
     const threshold=this.add.rectangle(0,0,150,54,0x7e252b,.08).setStrokeStyle(3,0xc35a4f,.22)
     const label = this.add.text(0,-105,'열린 지옥문',{fontFamily:'Arial',fontSize:'17px',color:'#efc1ad',backgroundColor:'#160d10dd',padding:{x:10,y:5}}).setOrigin(.5)
     this.extraction = this.add.container(400,2780,[threshold,label]).setDepth(7).setVisible(false)
     this.tweens.add({targets:threshold,alpha:.28,duration:720,yoyo:true,repeat:-1})
+  }
+
+  updateAngelGuidance() {
+    const target=this.sealNodes.find(node=>!node.getData('activated'))
+    this.angelGuidance.clear()
+    this.directionalAngels.forEach((statue,index)=>{
+      const marker=this.directionalMarkers[index]
+      if(!target){
+        statue.setAngle(0).setTint(0x776f72)
+        marker.setVisible(false)
+        return
+      }
+      const angle=Phaser.Math.Angle.Between(statue.x,statue.y,target.x,target.y)
+      statue.setAngle(0).setTint(0xc8e5df)
+      const startX=statue.x+Math.cos(angle)*32,startY=statue.y+Math.sin(angle)*32
+      const endX=statue.x+Math.cos(angle)*92,endY=statue.y+Math.sin(angle)*92
+      this.angelGuidance.lineStyle(10,0x8ffff0,.08).lineBetween(startX,startY,endX,endY)
+        .lineStyle(3,0xc9fff5,.72).lineBetween(startX,startY,endX,endY)
+      marker.setPosition(endX,endY)
+        .setRotation(angle+Math.PI/2).setVisible(true)
+    })
   }
 
   createHellGate() {
@@ -607,6 +639,7 @@ class PossessionScene extends Phaser.Scene {
   activateSeal(node: Phaser.GameObjects.Container) {
     if(node.getData('activated'))return
     node.setData('activated', true)
+    this.updateAngelGuidance()
     this.isChannelingSeal = false
     this.activeSeal = undefined
     this.statueInteractPrompt.setVisible(false).setText('상호 작용  E')
@@ -677,13 +710,16 @@ class PossessionScene extends Phaser.Scene {
     const v = new Phaser.Math.Vector2(dx, dy).normalize().scale(220 * this.speedMultiplier() * (time < this.dodgeUntil ? 2.1 : 1))
     const movementStep=Math.min(delta,100)/1000
     let vx=v.x,vy=v.y
-    const canMoveX=this.isWalkable(this.player.x+vx*movementStep,this.player.y)
-    const canMoveY=this.isWalkable(this.player.x,this.player.y+vy*movementStep)
-    if(!canMoveX)vx=0
-    if(!canMoveY)vy=0
-    if(!this.isWalkable(this.player.x+vx*movementStep,this.player.y+vy*movementStep)){
-      if(Math.abs(vx)>=Math.abs(vy))vy=0
-      else vx=0
+    const fullStepWalkable=this.isWalkable(this.player.x+vx*movementStep,this.player.y+vy*movementStep)
+    if(!fullStepWalkable){
+      const canMoveX=this.isWalkable(this.player.x+vx*movementStep,this.player.y)
+      const canMoveY=this.isWalkable(this.player.x,this.player.y+vy*movementStep)
+      if(!canMoveX)vx=0
+      if(!canMoveY)vy=0
+      if(!this.isWalkable(this.player.x+vx*movementStep,this.player.y+vy*movementStep)){
+        if(Math.abs(vx)>=Math.abs(vy))vy=0
+        else vx=0
+      }
     }
     const allowedVelocity=new Phaser.Math.Vector2(vx,vy)
     this.player.setVelocity(vx,vy)
