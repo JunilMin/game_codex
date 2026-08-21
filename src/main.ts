@@ -65,7 +65,7 @@ class PossessionScene extends Phaser.Scene {
   storyPanel!: Phaser.GameObjects.Container
   controlsPanel!: Phaser.GameObjects.Container
   statueInteractPrompt!: Phaser.GameObjects.Text
-  playerShadow!: Phaser.GameObjects.Ellipse
+  playerShadow!: Phaser.GameObjects.Sprite
   playerContactShadow!: Phaser.GameObjects.Ellipse
   bossShadow!: Phaser.GameObjects.Ellipse
   bossContactShadows: Phaser.GameObjects.Ellipse[] = []
@@ -132,8 +132,8 @@ class PossessionScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(400, 2780, 'guardianSword', 0).setDisplaySize(160, 100).setDepth(20).setCollideWorldBounds(true).setPushable(false).setTint(0xd0bbb5)
     this.player.body!.setSize(105, 62).setOffset(203, 235)
     this.player.play('guardian-sword-idle')
-    this.playerShadow = this.add.ellipse(400, 2811, 42, 12, 0x000000, .38).setDepth(18)
-    this.playerContactShadow=this.add.ellipse(400,2809,27,7,0x000000,.76).setDepth(19)
+    this.playerShadow = this.add.sprite(418,2812,'guardianSword',0).setDisplaySize(150,34).setTint(0x000000).setAlpha(.3).setRotation(-.12).setDepth(18)
+    this.playerContactShadow=this.add.ellipse(400,2809,24,6,0x000000,.58).setDepth(19)
     this.weaponVisual = this.add.image(400, 2780, 'weapon-sword').setDepth(22).setVisible(false)
     this.boss = this.physics.add.sprite(1600, 1500, 'bossMotion', 0).setDisplaySize(261, 261).setDepth(20).setImmovable(true).setVisible(false).setActive(false).setTint(0xc5aaa8)
     this.boss.body!.setSize(380, 300).setOffset(180, 400)
@@ -734,53 +734,21 @@ class PossessionScene extends Phaser.Scene {
     const playerFrame=this.player.anims.currentFrame?.index??0
     const playerStride=playerAnim.endsWith('-run')?Math.sin(playerFrame*Math.PI*.5)*3:0
     const playerAction=playerAnim.endsWith('-slash')||playerAnim.endsWith('-parry')
-    this.playerShadow.setPosition(this.player.x+playerStride,this.player.y+(playerAction?27:31)).setDepth(this.player.depth-1)
-      .setDisplaySize(playerAction?47:42+(playerAnim.endsWith('-run')?Math.abs(playerStride)*1.4:0),playerAction?10:12)
-      .setAlpha(playerAction ? .34 : .38)
-    this.playerContactShadow.setPosition(this.player.x+playerStride*.7,this.player.y+(playerAction?25:29)).setDepth(this.player.depth-.5)
-      .setDisplaySize(playerAction?32:27,playerAction?6:7).setAlpha(this.player.alpha*.76)
-    const moveBossShadow=(actor:Phaser.Physics.Arcade.Sprite,shadow:Phaser.GameObjects.Ellipse)=>{
-      const anim=actor.anims.currentAnim?.key??''
-      const frame=actor.anims.currentFrame?.index??0
-      const attack=anim==='boss-attack'
-      const progress=attack?Phaser.Math.Clamp((frame-1)/3,0,1):0
-      const stride=anim==='boss-walk'?Math.sin(frame*Math.PI*.5)*7:0
-      shadow.setVisible(actor.visible).setPosition(actor.x+stride+(attack?(actor.flipX?-1:1)*progress*12:0),actor.y+72+progress*9).setDepth(actor.depth-1)
-        .setDisplaySize(140*(1+(attack?Math.sin(progress*Math.PI)*.18:Math.abs(stride)*.003)),34*(1-progress*.2)).setAlpha(actor.alpha*.4)
-    }
+    if(this.playerShadow.texture.key!==this.player.texture.key)this.playerShadow.setTexture(this.player.texture.key)
+    this.playerShadow.setFrame(this.player.frame.name).setFlipX(this.player.flipX)
+      .setPosition(this.player.x+18+playerStride,this.player.y+(playerAction?31:34)).setDepth(this.player.depth-1)
+      .setDisplaySize(this.player.displayWidth*.94,this.player.displayHeight*(playerAction ? .38 : .32))
+      .setRotation(this.player.flipX ? .12 : -.12).setAlpha(this.player.alpha*(playerAction ? .34 : .28)).setVisible(this.player.visible)
+    this.playerContactShadow.setPosition(this.player.x+playerStride*.7,this.player.y+(playerAction?26:30)).setDepth(this.player.depth-.5)
+      .setDisplaySize(playerAction?27:24,playerAction?6:5).setAlpha(this.player.alpha*.58)
     if (this.boss.visible) {
       this.boss.setDepth(20 + this.boss.y / 30)
-      moveBossShadow(this.boss,this.bossShadow)
-      const frame=this.boss.anims.currentFrame?.index??0
-      const spread=this.boss.anims.currentAnim?.key==='boss-attack'?46+Math.sin(frame*Math.PI*.5)*8:42
-      this.bossContactShadows.forEach((s,i)=>s.setVisible(true).setPosition(this.boss.x+(i?1:-1)*spread,this.boss.y+69+(i?1:-1)*2).setDepth(this.boss.depth-.5).setAlpha(this.boss.alpha*.72))
     }
     if(this.bossClone?.visible){
       this.bossClone.setDepth(20+this.bossClone.y/30)
-      const cloneShadow=this.bossClone.getData('shadow') as Phaser.GameObjects.Ellipse|undefined
-      if(cloneShadow)moveBossShadow(this.bossClone,cloneShadow)
-      const contacts=this.bossClone.getData('contactShadows') as Phaser.GameObjects.Ellipse[]|undefined
-      const frame=this.bossClone.anims.currentFrame?.index??0
-      const spread=this.bossClone.anims.currentAnim?.key==='boss-attack'?46+Math.sin(frame*Math.PI*.5)*8:42
-      contacts?.forEach((s,i)=>s.setPosition(this.bossClone!.x+(i?1:-1)*spread,this.bossClone!.y+69+(i?1:-1)*2).setDepth(this.bossClone!.depth-.5).setAlpha(this.bossClone!.alpha*.72))
     }
-    this.enemies.getChildren().forEach(o => {
-      const e = o as Phaser.Physics.Arcade.Sprite
-      const shadow = e.getData('shadow') as Phaser.GameObjects.Ellipse | undefined
-      const contact=e.getData('contactShadow') as Phaser.GameObjects.Ellipse|undefined
-      if (shadow) {
-        const climbing=e.getData('climbing')===true
-        const anim=e.anims.currentAnim?.key??''
-        const frame=e.anims.currentFrame?.index??0
-        const stride=Math.sin(frame*Math.PI*.5)*(climbing?5:3)
-        const attacking=anim==='demon-attack'
-        shadow.setPosition(e.x+stride,e.y+(climbing?17:attacking?23:27)).setDepth(e.depth-1)
-          .setDisplaySize(climbing?59:attacking?50:43+Math.abs(stride),climbing?9:attacking?9:12)
-          .setAlpha(e.alpha*(climbing ? .25 : attacking ? .32 : .36))
-        contact?.setPosition(e.x+stride*.7,e.y+(climbing?15:attacking?21:25)).setDepth(e.depth-.5)
-          .setDisplaySize(climbing?34:attacking?28:23,climbing?5:6).setAlpha(e.alpha*(climbing ? .55 : .7))
-      }
-    })
+    this.bossShadow.setVisible(false)
+    this.bossContactShadows.forEach(shadow=>shadow.setVisible(false))
   }
 
   updateWeaponVisual(time: number) {
@@ -814,8 +782,6 @@ class PossessionScene extends Phaser.Scene {
     e.setDisplaySize(88, 88).setData('hp', 16).setData('nextHit', 0).setDepth(18).setTint(0xe1ced0)
     e.setData('born', this.time.now)
     e.setData('climbing',false).setData('nextClaw',0)
-    e.setData('shadow',this.add.ellipse(e.x,e.y+27,43,12,0x000000,.36).setDepth(17))
-    e.setData('contactShadow',this.add.ellipse(e.x,e.y+25,23,6,0x000000,.7).setDepth(18))
     e.body!.setSize(120, 72).setOffset(97, 221)
     e.play('demon-run')
   }
@@ -1225,8 +1191,6 @@ class PossessionScene extends Phaser.Scene {
       this.bossClone=this.physics.add.sprite(splitX,splitY,'bossMotion',0).setDisplaySize(261,261).setDepth(20).setImmovable(true).setAlpha(.35).setTint(0xc5aaa8).play('boss-idle')
       this.bossClone.body!.setSize(380,300).setOffset(180,400)
       this.bossClone.setData('hp',300).setData('executable',false).setData('nextAttack',this.time.now+1700).setData('attackCount',0).setData('actionUntil',this.time.now+900)
-      this.bossClone.setData('shadow',this.add.ellipse(splitX,splitY+75,162,51,0x000000,.62).setDepth(18))
-      this.bossClone.setData('contactShadows',[this.add.ellipse(splitX-42,splitY+71,48,11,0x000000,.72),this.add.ellipse(splitX+42,splitY+73,48,11,0x000000,.72)].map(s=>s.setDepth(19)))
       this.physics.add.collider(this.bossClone,this.walls)
       this.physics.add.collider(this.player,this.bossClone)
       this.cameras.main.shake(500,.014)
