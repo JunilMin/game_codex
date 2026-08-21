@@ -878,15 +878,15 @@ class PossessionScene extends Phaser.Scene {
     this.bossHp = 300; this.purification = 0; this.executable = false
     this.showNarrativeModal('울부짖는 천사','문지기를 내게 데려와라','내 성광은 악마의 육체를 태울 수 있다.\n문지기의 공격을 견디며 이곳까지 유인하라.','닫기',()=>{
       this.boss.enableBody(true,1600,1500,true,true).setAlpha(0).setAngle(0).play('boss-idle')
-      this.boss.setData('nextAttack',this.time.now+1300).setData('attackCount',0).setData('actionUntil',0)
+      this.boss.setData('hp',300).setData('executable',false).setData('nextAttack',this.time.now+1300).setData('attackCount',0).setData('actionUntil',0)
       this.tweens.add({targets:this.boss,alpha:1,y:1550,duration:700,ease:'Back.Out'})
       this.instruction.setText('빙의된 문지기 · 공격을 패링해 공포를 채우십시오')
     })
   }
 
   updateBoss(time: number) {
-    if (!this.bossActive || this.executable) return
-    for(const actor of this.activeBosses())this.updateSingleBoss(actor,time)
+    if (!this.bossActive) return
+    for(const actor of this.activeBosses())if(!actor.getData('executable'))this.updateSingleBoss(actor,time)
   }
 
   activeBosses(){return [this.boss,this.bossClone].filter((b):b is Phaser.Physics.Arcade.Sprite=>!!b&&b.active&&b.visible)}
@@ -915,7 +915,7 @@ class PossessionScene extends Phaser.Scene {
       .setData('parryOpenAt',time+330).setData('parryCloseAt',time+920)
     this.showAttackTelegraph(actor,parryable,tx,ty)
     this.time.delayedCall(850,()=>{
-      if(!actor.active||this.executable)return
+      if(!actor.active||actor.getData('executable'))return
       if(actor.getData('parriedAttackId')===attackId)return
       if(target!==this.player){const targetStatue=target as Phaser.GameObjects.Container;if(targetStatue.active&&Phaser.Math.Distance.Between(actor.x,actor.y,targetStatue.x,targetStatue.y)<190)this.damageStatue(targetStatue,45);return}
       if(!parryable){for(let i=0;i<8;i++)this.fireEnemyShot(actor,i*Math.PI/4);return}
@@ -934,7 +934,7 @@ class PossessionScene extends Phaser.Scene {
     const windup=this.add.text(actor.x,actor.y+88,'도끼 강타',{fontFamily:'Arial',fontSize:'13px',color:parryable?'#ffe6a0':'#d8a8ff',backgroundColor:'#09080dcc',padding:{x:7,y:3}}).setOrigin(.5).setDepth(40)
     this.tweens.add({targets:actor,x:actor.x+(tx-actor.x)*.18,y:actor.y+(ty-actor.y)*.18,duration:760,ease:'Cubic.In'})
     this.time.delayedCall(760,()=>{if(parryable)actor.setTint(0xffd36a);this.cameras.main.shake(100,.006)})
-    this.time.delayedCall(900,()=>{cue.destroy();windup.destroy();actor.setTint(0xc5aaa8).setAngle(0);if(actor.active&&!this.executable)actor.play('boss-idle',true)})
+    this.time.delayedCall(900,()=>{cue.destroy();windup.destroy();actor.setTint(0xc5aaa8).setAngle(0);if(actor.active&&!actor.getData('executable'))actor.play('boss-idle',true)})
   }
 
   fireEnemyShot(actor:Phaser.Physics.Arcade.Sprite,a: number) {
@@ -980,7 +980,7 @@ class PossessionScene extends Phaser.Scene {
     this.tweens.add({targets:slash,alpha:0,duration:260,ease:'Cubic.Out',onComplete:()=>slash.destroy()})
     for(const boss of this.activeBosses()){
       const bossInFront=Math.abs(Phaser.Math.Angle.Wrap(Phaser.Math.Angle.Between(this.player.x,this.player.y,boss.x,boss.y)-angle))<halfSwing
-      if(bossInFront&&Phaser.Math.Distance.Between(this.player.x,this.player.y,boss.x,boss.y)<range+55){if(this.executable)this.executeBoss();else this.damageBoss(damage*.32)}
+      if(bossInFront&&Phaser.Math.Distance.Between(this.player.x,this.player.y,boss.x,boss.y)<range+55){if(boss.getData('executable'))this.executeBoss(boss);else this.damageBoss(damage*.32,boss)}
     }
     this.enemies.getChildren().forEach(o => {
       const e=o as Phaser.Physics.Arcade.Sprite
@@ -1002,7 +1002,7 @@ class PossessionScene extends Phaser.Scene {
       this.time.delayedCall(235,()=>{
         if(!statue.active)return
         targets.forEach(target=>{if(target.active){this.statueLightning(target,false);this.damageEnemy(target,36)}})
-        bossTargets.forEach(target=>{if(target.active&&!this.executable){this.statueLightning(target,true);this.damageBoss(18)}})
+        bossTargets.forEach(target=>{if(target.active&&!target.getData('executable')){this.statueLightning(target,true);this.damageBoss(18,target)}})
       })
       this.time.delayedCall(510,()=>{if(statue.active)angel.setFrame(0).setFlipX(false).setAngle(0)})
     }
@@ -1085,7 +1085,10 @@ class PossessionScene extends Phaser.Scene {
     this.tweens.add({ targets: burst, alpha: 0, scale: 2.2, angle: 45, duration: 220, onComplete: () => burst.destroy() })
     this.instruction.setText(`중화 성공 · 악성 중화율 ${Math.round(this.purification)}%`)
     this.time.delayedCall(700, () => { if (!this.executable) this.instruction.setText('') })
-    if (this.purification >= 100) this.makeExecutable('악성이 완전히 중화되었습니다')
+    if (this.purification >= 100) {
+      this.makeExecutable('악성이 완전히 중화되었습니다',actor)
+      if(this.bossPhase===2)this.purification=0
+    }
   }
 
   neutralizeEnemy(enemy: Phaser.Physics.Arcade.Sprite) {
@@ -1176,20 +1179,25 @@ class PossessionScene extends Phaser.Scene {
     this.tweens.add({targets:e,x:x+Math.cos(base)*70,y:y+Math.sin(base)*70,scaleX:e.scaleX*2.2,scaleY:e.scaleY*.18,alpha:0,duration:165,ease:'Expo.Out',onComplete:()=>{(e.getData('shadow') as Phaser.GameObjects.Ellipse|undefined)?.destroy();(e.getData('contactShadow') as Phaser.GameObjects.Ellipse|undefined)?.destroy();e.destroy()}})
   }
 
-  damageBoss(n: number) {
-    if (!this.bossActive || this.executable) return
-    this.bossHp = Math.max(0, this.bossHp - n)
-    this.activeBosses().forEach(b=>b.setTint(0xffffff));this.time.delayedCall(80,()=>this.activeBosses().forEach(b=>b.setTint(0xc5aaa8)))
-    if (this.bossHp <= 0) this.makeExecutable('육체가 무너졌습니다')
+  damageBoss(n: number,target=this.boss) {
+    if (!this.bossActive||!target.active||target.getData('executable')) return
+    if(this.bossPhase===1){
+      this.bossHp=Math.max(0,this.bossHp-n)
+      target.setData('hp',this.bossHp)
+    }else{
+      target.setData('hp',Math.max(0,(target.getData('hp')??300)-n))
+      this.bossHp=this.activeBosses().reduce((sum,b)=>sum+(b.getData('hp')??0),0)
+    }
+    target.setTint(0xffffff);this.time.delayedCall(80,()=>{if(target.active&&!target.getData('executable'))target.setTint(0xc5aaa8)})
+    if((target.getData('hp')??this.bossHp)<=0)this.makeExecutable('육체가 무너졌습니다',target)
   }
 
-  makeExecutable(reason: string) {
-    this.executable = true
-    this.activeBosses().forEach(b=>{
-      b.setVelocity(0).setTint(0x6d151b).stop().setFrame(13)
-      this.tweens.add({targets:b,scaleY:b.scaleY*.88,y:b.y+12,duration:420,ease:'Back.Out'})
-      this.add.circle(b.x,b.y-15,9,0xff1515).setStrokeStyle(4,0xffffff).setDepth(50).setName('weakpoint')
-    })
+  makeExecutable(reason: string,target=this.boss) {
+    if(!target.active||target.getData('executable'))return
+    if(this.bossPhase===1)this.executable=true
+    target.setData('executable',true).setVelocity(0).setTint(0x6d151b).stop().setFrame(13)
+    this.tweens.add({targets:target,scaleY:target.scaleY*.88,y:target.y+12,duration:420,ease:'Back.Out'})
+    this.add.circle(target.x,target.y-15,9,0xff1515).setStrokeStyle(4,0xffffff).setDepth(50).setName('weakpoint').setData('owner',target)
     this.instruction.setText(`${reason} · 붉은 핵에 근접 공격으로 처형하십시오`)
   }
 
@@ -1204,19 +1212,19 @@ class PossessionScene extends Phaser.Scene {
     return {x,y}
   }
 
-  executeBoss() {
-    if(!this.bossActive)return
-    this.children.getAll('name','weakpoint').forEach(o=>o.destroy())
+  executeBoss(target=this.boss) {
+    if(!this.bossActive||!target.active||!target.getData('executable'))return
+    this.children.getAll('name','weakpoint').filter(o=>o.getData('owner')===target).forEach(o=>o.destroy())
     if(this.bossPhase===1){
       const splitX=this.boss.x,splitY=this.boss.y
       const splitAxis=Phaser.Math.Angle.Between(this.player.x,this.player.y,splitX,splitY)+Math.PI/2
       const firstDestination=this.splitBossDestination(splitX,splitY,splitAxis)
       const secondDestination=this.splitBossDestination(splitX,splitY,splitAxis+Math.PI)
       this.bossPhase=2;this.executable=false;this.bossHp=300;this.purification=0
-      this.boss.setTint(0xc5aaa8).setScale(261/313).setPosition(splitX,splitY).setAlpha(.35).setFrame(0).play('boss-idle',true).setData('nextAttack',this.time.now+1500).setData('attackCount',0).setData('actionUntil',this.time.now+900)
+      this.boss.setTint(0xc5aaa8).setScale(261/313).setPosition(splitX,splitY).setAlpha(.35).setFrame(0).play('boss-idle',true).setData('hp',300).setData('executable',false).setData('nextAttack',this.time.now+1500).setData('attackCount',0).setData('actionUntil',this.time.now+900)
       this.bossClone=this.physics.add.sprite(splitX,splitY,'bossMotion',0).setDisplaySize(261,261).setDepth(20).setImmovable(true).setAlpha(.35).setTint(0xc5aaa8).play('boss-idle')
       this.bossClone.body!.setSize(380,300).setOffset(180,400)
-      this.bossClone.setData('nextAttack',this.time.now+1700).setData('attackCount',0).setData('actionUntil',this.time.now+900)
+      this.bossClone.setData('hp',300).setData('executable',false).setData('nextAttack',this.time.now+1700).setData('attackCount',0).setData('actionUntil',this.time.now+900)
       this.bossClone.setData('shadow',this.add.ellipse(splitX,splitY+75,162,51,0x000000,.62).setDepth(18))
       this.bossClone.setData('contactShadows',[this.add.ellipse(splitX-42,splitY+71,48,11,0x000000,.72),this.add.ellipse(splitX+42,splitY+73,48,11,0x000000,.72)].map(s=>s.setDepth(19)))
       this.physics.add.collider(this.bossClone,this.walls)
@@ -1237,16 +1245,19 @@ class PossessionScene extends Phaser.Scene {
       })
       return
     }
-    this.bossActive=false
-    for(const b of this.activeBosses()){
-      b.disableBody(true,false).setFrame(15)
-      for(let i=0;i<34;i++){const a=Phaser.Math.FloatBetween(0,Math.PI*2),d=Phaser.Math.Between(90,260);const blood=this.add.rectangle(b.x,b.y,Phaser.Math.Between(22,75),Phaser.Math.Between(3,9),i%4?0x8e1723:0xe34b45,.9).setOrigin(0,.5).setRotation(a).setDepth(80);this.tweens.add({targets:blood,x:b.x+Math.cos(a)*d,y:b.y+Math.sin(a)*d,scaleX:2.4,alpha:0,duration:Phaser.Math.Between(260,520),onComplete:()=>blood.destroy()})}
-      this.tweens.add({targets:b,alpha:0,scaleX:b.scaleX*1.8,scaleY:b.scaleY*.3,duration:420,onComplete:()=>b.setVisible(false)})
-      ;(b.getData('shadow') as Phaser.GameObjects.Ellipse|undefined)?.destroy()
-      ;(b.getData('contactShadows') as Phaser.GameObjects.Ellipse[]|undefined)?.forEach(s=>s.destroy())
-    }
-    this.time.delayedCall(430,()=>{this.bossShadow.setVisible(false);this.bossContactShadows.forEach(s=>s.setVisible(false))})
+    const deathX=target.x,deathY=target.y
+    target.disableBody(true,false).setFrame(15)
+    for(let i=0;i<34;i++){const a=Phaser.Math.FloatBetween(0,Math.PI*2),d=Phaser.Math.Between(90,260);const blood=this.add.rectangle(deathX,deathY,Phaser.Math.Between(22,75),Phaser.Math.Between(3,9),i%4?0x8e1723:0xe34b45,.9).setOrigin(0,.5).setRotation(a).setDepth(80);this.tweens.add({targets:blood,x:deathX+Math.cos(a)*d,y:deathY+Math.sin(a)*d,scaleX:2.4,alpha:0,duration:Phaser.Math.Between(260,520),onComplete:()=>blood.destroy()})}
+    this.tweens.add({targets:target,alpha:0,scaleX:target.scaleX*1.8,scaleY:target.scaleY*.3,duration:420,onComplete:()=>target.setVisible(false)})
+    if(target===this.boss)this.time.delayedCall(430,()=>{this.bossShadow.setVisible(false);this.bossContactShadows.forEach(s=>s.setVisible(false))})
+    else{(target.getData('shadow') as Phaser.GameObjects.Ellipse|undefined)?.destroy();(target.getData('contactShadows') as Phaser.GameObjects.Ellipse[]|undefined)?.forEach(s=>s.destroy())}
     this.cameras.main.shake(650,.018)
+    if(this.activeBosses().length){
+      this.purification=0
+      this.instruction.setText('문지기 하나 처형 · 남은 문지기를 쓰러뜨리십시오')
+      return
+    }
+    this.bossActive=false
     this.missionPhase = 'extract'
     this.extraction.setVisible(true)
     this.instruction.setText('목표 제거 완료 · 시작 지점의 탈출 구역으로 복귀하십시오')
@@ -1265,8 +1276,9 @@ class PossessionScene extends Phaser.Scene {
     this.statusText.setText(`빙의율 ${Math.round(this.possession)}%   공격 속도 x${this.attackSpeedMultiplier().toFixed(1)}   신성한 약 ${this.medicine}/3   무기 ${this.melee.toUpperCase()}${this.bossActive?`   공포 ${Math.round(this.purification)}%`:''}`)
     this.bossBar.clear()
     if (this.bossActive) {
+      const bossHealthRatio=this.bossPhase===1?this.bossHp/300:this.activeBosses().reduce((sum,b)=>sum+(b.getData('hp')??0),0)/600
       this.bossBar.fillStyle(0x17151a, .95).fillRoundedRect(440, 25, 400, 50, 7)
-        .fillStyle(0xb5353b).fillRect(450,37,380*this.bossHp/300,9)
+        .fillStyle(0xb5353b).fillRect(450,37,380*bossHealthRatio,9)
         .fillStyle(0x8de6cf).fillRect(450, 55, 380 * this.purification / 100, 7)
     }
     const done=this.missionPhase==='seals'?0:this.missionPhase==='slaughter'?1:2
