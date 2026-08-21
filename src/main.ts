@@ -1223,10 +1223,16 @@ class PossessionScene extends Phaser.Scene {
       this.physics.add.collider(this.player,this.bossClone)
       this.cameras.main.shake(500,.014)
       this.showNarrativeModal('울부짖는 천사','분노가 문지기를 둘로 갈랐다','두 육체 모두를 내게 데려와라.\n내 번개로 문지기의 분노를 불태우겠다.','닫기',()=>{
-        this.boss.setData('actionUntil',this.time.now+650).setData('nextAttack',this.time.now+1500)
-        this.bossClone!.setData('actionUntil',this.time.now+650).setData('nextAttack',this.time.now+1700)
-        this.tweens.add({targets:this.boss,x:firstDestination.x,y:firstDestination.y,alpha:1,duration:520,ease:'Back.Out'})
-        this.tweens.add({targets:this.bossClone,x:secondDestination.x,y:secondDestination.y,alpha:1,duration:520,ease:'Back.Out'})
+        const fullScale=261/313
+        this.boss.setPosition(splitX,splitY).setScale(.18).setAlpha(0).setData('actionUntil',this.time.now+1200).setData('nextAttack',this.time.now+1800)
+        this.bossClone!.setPosition(splitX,splitY).setScale(.18).setAlpha(0).setData('actionUntil',this.time.now+1200).setData('nextAttack',this.time.now+2000)
+        const rupture=this.add.circle(splitX,splitY,42,0xa51f2b,.72).setStrokeStyle(6,0xff6a58,.9).setDepth(79)
+        this.tweens.add({targets:rupture,scale:3.8,alpha:0,duration:460,ease:'Expo.Out',onComplete:()=>rupture.destroy()})
+        this.tweens.add({targets:[this.boss,this.bossClone],scaleX:fullScale,scaleY:fullScale,alpha:1,duration:360,ease:'Back.Out'})
+        this.time.delayedCall(430,()=>{
+          this.tweens.add({targets:this.boss,x:firstDestination.x,y:firstDestination.y,duration:520,ease:'Back.Out'})
+          this.tweens.add({targets:this.bossClone,x:secondDestination.x,y:secondDestination.y,duration:520,ease:'Back.Out'})
+        })
         this.instruction.setText('두 문지기를 각성한 천사상으로 유인하십시오')
       })
       return
