@@ -1193,21 +1193,42 @@ class PossessionScene extends Phaser.Scene {
     this.instruction.setText(`${reason} · 붉은 핵에 근접 공격으로 처형하십시오`)
   }
 
+  splitBossDestination(x:number,y:number,angle:number) {
+    for(const distance of [135,110,85,60]) {
+      for(const offset of [0,.28,-.28,.55,-.55]) {
+        const candidateX=Phaser.Math.Clamp(x+Math.cos(angle+offset)*distance,90,MAP_W-90)
+        const candidateY=Phaser.Math.Clamp(y+Math.sin(angle+offset)*distance,90,MAP_H-90)
+        if(this.isWalkable(candidateX,candidateY))return {x:candidateX,y:candidateY}
+      }
+    }
+    return {x,y}
+  }
+
   executeBoss() {
     if(!this.bossActive)return
     this.children.getAll('name','weakpoint').forEach(o=>o.destroy())
     if(this.bossPhase===1){
+      const splitX=this.boss.x,splitY=this.boss.y
+      const splitAxis=Phaser.Math.Angle.Between(this.player.x,this.player.y,splitX,splitY)+Math.PI/2
+      const firstDestination=this.splitBossDestination(splitX,splitY,splitAxis)
+      const secondDestination=this.splitBossDestination(splitX,splitY,splitAxis+Math.PI)
       this.bossPhase=2;this.executable=false;this.bossHp=300;this.purification=0
-      this.boss.setTint(0xc5aaa8).setScale(261/313).setPosition(1510,1530).setFrame(0).play('boss-idle',true).setData('nextAttack',this.time.now+1100).setData('attackCount',0).setData('actionUntil',0)
-      this.bossClone=this.physics.add.sprite(1690,1530,'bossMotion',0).setDisplaySize(261,261).setDepth(20).setImmovable(true).setTint(0xc5aaa8).play('boss-idle')
+      this.boss.setTint(0xc5aaa8).setScale(261/313).setPosition(splitX,splitY).setAlpha(.35).setFrame(0).play('boss-idle',true).setData('nextAttack',this.time.now+1500).setData('attackCount',0).setData('actionUntil',this.time.now+900)
+      this.bossClone=this.physics.add.sprite(splitX,splitY,'bossMotion',0).setDisplaySize(261,261).setDepth(20).setImmovable(true).setAlpha(.35).setTint(0xc5aaa8).play('boss-idle')
       this.bossClone.body!.setSize(380,300).setOffset(180,400)
-      this.bossClone.setData('nextAttack',this.time.now+1500).setData('attackCount',0).setData('actionUntil',0)
-      this.bossClone.setData('shadow',this.add.ellipse(1690,1605,162,51,0x000000,.62).setDepth(18))
-      this.bossClone.setData('contactShadows',[this.add.ellipse(1648,1601,48,11,0x000000,.72),this.add.ellipse(1732,1603,48,11,0x000000,.72)].map(s=>s.setDepth(19)))
+      this.bossClone.setData('nextAttack',this.time.now+1700).setData('attackCount',0).setData('actionUntil',this.time.now+900)
+      this.bossClone.setData('shadow',this.add.ellipse(splitX,splitY+75,162,51,0x000000,.62).setDepth(18))
+      this.bossClone.setData('contactShadows',[this.add.ellipse(splitX-42,splitY+71,48,11,0x000000,.72),this.add.ellipse(splitX+42,splitY+73,48,11,0x000000,.72)].map(s=>s.setDepth(19)))
       this.physics.add.collider(this.bossClone,this.walls)
       this.physics.add.collider(this.player,this.bossClone)
       this.cameras.main.shake(500,.014)
-      this.showNarrativeModal('울부짖는 천사','분노가 문지기를 둘로 갈랐다','두 육체 모두를 나에게 데려와라.\n내 번개로 문지기의 분노를 불태우겠다.','닫기',()=>this.instruction.setText('두 문지기를 각성한 천사상으로 유인하십시오'))
+      this.showNarrativeModal('울부짖는 천사','분노가 문지기를 둘로 갈랐다','두 육체 모두를 나에게 데려와라.\n내 번개로 문지기의 분노를 불태우겠다.','닫기',()=>{
+        this.boss.setData('actionUntil',this.time.now+650).setData('nextAttack',this.time.now+1500)
+        this.bossClone!.setData('actionUntil',this.time.now+650).setData('nextAttack',this.time.now+1700)
+        this.tweens.add({targets:this.boss,x:firstDestination.x,y:firstDestination.y,alpha:1,duration:520,ease:'Back.Out'})
+        this.tweens.add({targets:this.bossClone,x:secondDestination.x,y:secondDestination.y,alpha:1,duration:520,ease:'Back.Out'})
+        this.instruction.setText('두 문지기를 각성한 천사상으로 유인하십시오')
+      })
       return
     }
     this.bossActive=false
